@@ -1,0 +1,5 @@
+yum -y install libmpc-devel mpfr-devel gmp-devel
+yum -y install zlib-devel
+
+./configure --with-system-zlib --disable-multilib --enable-languages=c,c++ --prefix=/gcc5.3
+

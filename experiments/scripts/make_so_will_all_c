@@ -1,0 +1,14 @@
+src = $(wildcard src/*.c)
+obj = $(src:.c=.o)
+
+
+lib: $(src)
+        gcc -Wall -Werror -I./src ${src} -fpic -shared -o src/libmylib.so
+
+
+run:
+        gcc test.c -lmylib -L./src -I./src
+
+
+clean:
+        rm -f src/*.so

@@ -1,0 +1,7 @@
+vhost-user (some explaination)
+https://access.redhat.com/solutions/3394851
+
+vhost-user prototype
+http://www.virtualopensystems.com/en/solutions/guides/snabbswitch-qemu/
+
+

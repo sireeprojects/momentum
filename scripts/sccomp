@@ -1,0 +1,1 @@
+g++ -I/sw/systemc/include -lsystemc -L/sw/systemc/lib-linux64 $1  -o  `echo $1 | rev | cut -c5- | rev`

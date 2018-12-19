@@ -1,0 +1,3 @@
+#!/bin/sh
+#git add -A ; git commit -m $1 ; git push
+git add -A; git commit -m "updates"; git push https://sireeprojects:sa%40981111@github.com/sireeprojects/momentum.git --all

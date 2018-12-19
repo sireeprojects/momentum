@@ -1,0 +1,12 @@
+hostnamectl set-hostname your-new-hostname
+localhost.localdomain
+
+--------------------------------------------------------------------------------
+To disable creation of perl5 directory at home
+-----------------------------------------------
+The solution is to modify the two files 
+/etc/profile.d/perl-homedir.sh and 
+/etc/profile.d/perl-homedir.csh,
+changing the setting of PERL_HOMEDIR from 1 to 0. 
+after logging back in, the PERL5LIB environment variable is no longer set. 
+--------------------------------------------------------------------------------

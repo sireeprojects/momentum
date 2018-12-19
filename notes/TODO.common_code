@@ -1,0 +1,32 @@
+--------------------------------------------------------------------------------
+mac.h
+------
+defines
+structs
+enums
+global variables
+
+--------------------------------------------------------------------------------
+common functions
+----------------
+pcap library
+endianess conversion (bytes reversal)
+packing and unpacking field functions
+timestamps (for performance measurements)
+messaging funcitons (option of file logging)
+
+--------------------------------------------------------------------------------
+
+messaging
+---------
+verbosity control (per message)
+   -- none, low, high, full
+   -- warning (yellow), error (red), fatal (red)
+   -- message coloring
+
+file logging control (per simulation)
+   -- file name, file path
+
+
+
+--------------------------------------------------------------------------------
