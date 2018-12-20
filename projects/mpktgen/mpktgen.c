@@ -77,7 +77,7 @@ struct port_t {
 };
 
 // data plane server descriptor
-struct mpktgen_dplane_t {
+struct mpktgen_dp_t {
     struct sockaddr_un addr;
     fd_set events;
     int max_events;
@@ -90,7 +90,7 @@ struct mpktgen_dplane_t {
 };
 
 // control plane server descriptor
-struct mpktgen_cplane_t {
+struct mpktgen_cp_t {
     struct sockaddr_un addr;
     fd_set events;
     int max_events;
@@ -181,11 +181,10 @@ struct mpktgen_opts_t *parse_cmdline_opts (int argv, char *argc[]) {
     return op;
 }
 
-int init_dplane_server (struct mpktgen_dplane_t *dp) {
+int init_dp_controller (struct mpktgen_dp_t *dp) {
     INFO ("Creating data plane socket server");
     int idx = 0;
     socklen_t len;
-
     // initialize descriptor
     FD_ZERO (&dp->events);
     dp->max_events = -1;
@@ -194,8 +193,8 @@ int init_dplane_server (struct mpktgen_dplane_t *dp) {
     for (idx=0; idx<MAX_PORTS; idx++) {
         dp->port[idx].fd = -1;
         dp->port[idx].id = 0;
+        // TODO allocate port rxbuf on port request
     }
-
     if ((dp->fd = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
         ERROR ("Server Creation: %s", strerror(errno));
         exit (0);
@@ -218,16 +217,14 @@ int init_dplane_server (struct mpktgen_dplane_t *dp) {
     }
 }
 
-int init_cplane_server (struct mpktgen_cplane_t *cp) {
+int init_cp_controller (struct mpktgen_cp_t *cp) {
     INFO ("Creating control plane socket server");
     int idx = 0;
     socklen_t len;
-
     // initialize descriptor
     FD_ZERO (&cp->events);
     cp->max_events = -1;
     cp->fd = -1;
-
     if ((cp->fd = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
         ERROR ("Server Creation: %s", strerror(errno));
         exit (0);
@@ -250,7 +247,7 @@ int init_cplane_server (struct mpktgen_cplane_t *cp) {
     }
 }
 
-int cleanup (struct mpktgen_dplane_t *dp, struct mpktgen_cplane_t *cp) {
+int cleanup (struct mpktgen_dp_t *dp, struct mpktgen_cp_t *cp) {
     close (dp->fd);
     close (cp->fd);
 }
@@ -260,7 +257,6 @@ int cleanup (struct mpktgen_dplane_t *dp, struct mpktgen_cplane_t *cp) {
 // similar to pushing play button
 void *tx_worker (void *arg) {
     uint32_t idx;
-
     struct port_t *p = (struct port_t*) arg;
     // cpu pin
     if (p->do_pin) {
@@ -269,7 +265,6 @@ void *tx_worker (void *arg) {
         CPU_SET(p->txpin, &cpuset);
         pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &cpuset);
     }
-
     // generate a frame with metadata
     struct mpktgen_frame_t *frm = 
         (struct mpktgen_frame_t*) 
@@ -289,7 +284,6 @@ void *tx_worker (void *arg) {
 
 void *rx_worker (void *arg) {
     struct port_t *p = (struct port_t*) arg;
-
     // cpu pin
     if (p->do_pin) {
         cpu_set_t cpuset;
@@ -297,7 +291,6 @@ void *rx_worker (void *arg) {
         CPU_SET(p->rxpin, &cpuset);
         pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &cpuset);
     }
-
     while (1) {
         read (p->fd, p->rxbuf, RX_BUFMAX, 0);
     }
@@ -320,7 +313,7 @@ char *readable_fs (double size, char *buf) {
     return buf;
 }
 
-void config_sock_buffer (struct port_t *p, uint32_t txsize, uint32_t rxsize) {
+void config_dp_buffer (struct port_t *p, uint32_t txsize, uint32_t rxsize) {
     char buf[100];
     int bufsize; 
     socklen_t bufsize_len;
@@ -344,7 +337,7 @@ void config_sock_buffer (struct port_t *p, uint32_t txsize, uint32_t rxsize) {
 
 void *dp_worker (void *arg) {
     INFO ("DP: Waiting for connection requests...");
-    struct mpktgen_dplane_t *s = (struct mpktgen_dplane_t*) arg;
+    struct mpktgen_dp_t *s = (struct mpktgen_dp_t*) arg;
     int fd;
     int ret;
 
@@ -384,7 +377,7 @@ void *dp_worker (void *arg) {
                     s->port[s->nof_ports_added].frm_size = s->opts->frm_size;
                     s->port[s->nof_ports_added].frm_cnt = s->opts->frm_cnt;
                     s->port[s->nof_ports_added].rxbuf = (char*) malloc (RX_BUFMAX);
-                    config_sock_buffer (&s->port[s->nof_ports_added], s->opts->txbuffer_size, s->opts->rxbuffer_size);
+                    config_dp_buffer (&s->port[s->nof_ports_added], s->opts->txbuffer_size, s->opts->rxbuffer_size);
                     // pin logic
                     if (s->opts->pin_start != -1) {
                         s->port[s->nof_ports_added].do_pin = 1;
@@ -403,11 +396,11 @@ void *dp_worker (void *arg) {
 
 void *cp_worker (void *arg) {
     INFO ("CP: Waiting for Control Commands...");
-    struct mpktgen_cplane_t *cp = (struct mpktgen_cplane_t*) arg;
+    struct mpktgen_cp_t *cp = (struct mpktgen_cp_t*) arg;
     int fd;
     int ret;
 
-    // cpu pin
+    // pin dp and cp on same CPU
     if (cp->opts->pin_start != -1) {
         cp->do_pin = 1;
         cpu_set_t cpuset;
@@ -443,43 +436,47 @@ void *cp_worker (void *arg) {
     }
 }
 
-void run_dplane_server (struct mpktgen_dplane_t *dp) {
+void run_dp_controller (struct mpktgen_dp_t *dp) {
     pthread_create (&dp->worker, NULL, *dp_worker, dp);
 }
 
-void run_cplane_server (struct mpktgen_cplane_t *cp) {
+void run_cp_controller (struct mpktgen_cp_t *cp) {
     pthread_create (&cp->worker, NULL, *cp_worker, cp);
 }
 
 int main (int argc, char * argv[]) {
     open_logfile();
 
-    // prepare socket descriptor
-    struct mpktgen_dplane_t *dplane = 
-        (struct mpktgen_dplane_t*) 
-        malloc (sizeof (struct mpktgen_dplane_t));
-    struct mpktgen_cplane_t *cplane = 
-        (struct mpktgen_cplane_t*)
-        malloc (sizeof (struct mpktgen_cplane_t));
+    // create data plane conroller
+    struct mpktgen_dp_t *dp = 
+        (struct mpktgen_dp_t*) 
+        malloc (sizeof (struct mpktgen_dp_t));
 
-    // commandline args
+    // create control plane conroller
+    struct mpktgen_cp_t *cp = 
+        (struct mpktgen_cp_t*)
+        malloc (sizeof (struct mpktgen_cp_t));
+
+    // parse and register commandline aguments
     struct mpktgen_opts_t *opts = parse_cmdline_opts (argc, argv);
-    dplane->opts = opts;
-    cplane->opts = opts;
+    dp->opts = opts;
+    cp->opts = opts;
 
-    // create the socket dplane
-    init_dplane_server (dplane);
-    init_cplane_server (cplane);
+    // initialize data and control plane with
+    // default paremeters
+    init_dp_controller (dp);
+    init_cp_controller (cp);
 
-    // start accepting incoming connections
-    run_dplane_server (dplane);
-    run_cplane_server (cplane);
+    // start controllers
+    run_dp_controller (dp);
+    run_cp_controller (cp);
 
-    pthread_join (dplane->worker, NULL);
-    pthread_join (cplane->worker, NULL);
+    pthread_join (dp->worker, NULL);
+    pthread_join (cp->worker, NULL);
 
-    // close file descrptors
-    cleanup (dplane, cplane); 
+    // cleanup
+    cleanup (dp, cp); 
+
     close_logfile();
     return 0;
 }
