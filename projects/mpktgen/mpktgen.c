@@ -6,12 +6,10 @@
 #include <getopt.h>
 #include <errno.h>
 #include <pthread.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sched.h>
-#include <sys/ioctl.h>
 
 #define MAX_PORTS     256
 #define RX_BUFMAX     16384
@@ -225,7 +223,7 @@ int init_cp_controller (struct mpktgen_cp_t *cp) {
     FD_ZERO (&cp->events);
     cp->max_events = -1;
     cp->fd = -1;
-    if ((cp->fd = socket (AF_UNIX, SOCK_STREAM, 0)) == -1) {
+    if ((cp->fd = socket (AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
         ERROR ("Server Creation: %s", strerror(errno));
         exit (0);
     }

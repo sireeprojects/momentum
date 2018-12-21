@@ -1,0 +1,6 @@
+#Steps:
+vlib work
+vmap work work
+gcc -I/sw/msim/modeltech/include -shared -fPIC -o hello.so hello.c
+vlog -sv hello.sv
+vsim -c hello -sv_lib hello
