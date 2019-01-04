@@ -5,36 +5,22 @@ VERBOSITY=1
 endif
 
 default:
-	@gcc 					\
-	mpktgen.c 				\
-	-lpthread 				\
-	-o mpktgen; 			\
+	@gcc mpktgen.c -lpthread -o mpktgen; \
 	./mpktgen 				\
 		-frm_size=100 		\
-		-frm_cnt=200 		\
+		-frm_cnt=10 		\
 		-txbuffer_size=64 	\
 		-rxbuffer_size=128 	\
 		-verbosity=${VERBOSITY}
 
-c:clean
-	@gcc 		\
-	mpktgen.c 	\
-	-lpthread 	\
-	-o mpktgen
+c:
+	@gcc mpktgen.c -lpthread -o mpktgen
 
 g:
-	@gcc 	\
-	gui.c 	\
-	-o gui;	\
-	./gui
+	@gcc gui.c -o gui; ./gui
 
-r:
-	@./mpktgen				\
-		-frm_size=100 		\
-		-frm_cnt=200 		\
-		-txbuffer_size=64 	\
-		-rxbuffer_size=128 	\
-		-verbosity=${VERBOSITY}
+a:
+	@g++ avip.cpp -lpthread -std=c++11 -o avip; ./avip
 
 clean:
-	@rm -rf *.log mpktgen *.out gui
+	@rm -rf *.log *.out mpktgen gui avip

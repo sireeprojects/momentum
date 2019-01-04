@@ -18,7 +18,6 @@ int main () {
         printf("Error Connecting stream socket");
         exit(1);
     }
-
     char cmdIn;
     char cmdStart[8] = "start";
     char cmdStop[8] = "stop";
@@ -27,11 +26,14 @@ int main () {
         printf("Enter Command:");
         scanf (" %c", &cmdIn);
         if (cmdIn=='p') {
-            printf(FGRN("Command:Stop\n"));
-            send (fd, cmdStart, 8,  0);
-        } else if (cmdIn=='s') {
             printf(FGRN("Command:Start\n"));
-            send (fd, cmdStop, 8,  0);
+            send (fd, &cmdStart, 8,  0);
+        } else if (cmdIn=='s') {
+            printf(FGRN("Command:Stop\n"));
+            send (fd, &cmdStop, 8,  0);
+        } else if (cmdIn=='e') {
+            printf(FGRN("Exit\n"));
+            return(0);
         } else {
             printf(FRED("Invalid Command\n"));
         }

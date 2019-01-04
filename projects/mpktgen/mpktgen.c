@@ -38,6 +38,8 @@ enum msg_verbosity {error, info, debug};
 
 uint32_t verbosity = info; // default
 
+int en_traffic = 0;
+
 // frame descriptor
 struct PACKED mpktgen_frame_t {
     // metadata 32 bytes
@@ -59,6 +61,7 @@ struct mpktgen_opts_t {
     int frm_cnt;   // default 1 million
     int verbosity; // default info
     int pin_start; // default -1
+    int cfg_sock_buf;
 };
 
 // port descriptor
@@ -119,6 +122,7 @@ struct mpktgen_opts_t *parse_cmdline_opts (int argv, char *argc[]) {
         opt_frm_size,
         opt_frm_cnt,
         opt_pin_start,
+        opt_cfg_sock_buf,
         opt_verbosity         
     };
     static struct option long_options[] = {
@@ -128,6 +132,7 @@ struct mpktgen_opts_t *parse_cmdline_opts (int argv, char *argc[]) {
         { "frm_cnt"      , required_argument, 0, opt_frm_cnt       },
         { "pin_start"    , required_argument, 0, opt_pin_start     },
         { "verbosity"    , required_argument, 0, opt_verbosity     },
+        { "cfg_sock_buf" , required_argument, 0, opt_cfg_sock_buf  },
         { 0, 0, 0, 0 }
     };
     // defaults
@@ -135,6 +140,7 @@ struct mpktgen_opts_t *parse_cmdline_opts (int argv, char *argc[]) {
     op->rxbuffer_size = 10240;
     op->frm_size = 64;
     op->frm_cnt = 100;
+    op->cfg_sock_buf = -1;
     op->pin_start = -1; // no pinning
     op->verbosity = info;
 
@@ -168,6 +174,11 @@ struct mpktgen_opts_t *parse_cmdline_opts (int argv, char *argc[]) {
             case opt_verbosity:{
                 INFO ("Verbosity: %d", verbosity);
                 verbosity = atoi(optarg);
+                break;
+            }
+            case opt_cfg_sock_buf:{
+                INFO ("Configure Socket Buffers Enabled");
+                op->cfg_sock_buf = 1;
                 break;
             }
             default:{
@@ -251,12 +262,36 @@ int cleanup (struct mpktgen_dp_t *dp, struct mpktgen_cp_t *cp) {
     close (cp->fd);
 }
 
-// TODO
-// thread should wait for a global trigger to start
-// similar to pushing play button
+void print_cdata (unsigned char* tmp, int len) {
+    uint32_t idx = 0;
+    printf ("Packet Len: %d\n", len);
+
+    int plen = 16;
+
+    int x;
+    for (x=0; x<len/plen; x++) {
+        int y;
+        for (y=0; y<plen; y++) {
+            printf("%02x ", (uint16_t)tmp[idx]);
+            if (idx%8==7) printf("  ");
+            idx++;
+        }
+        printf("\n");
+    }
+    for (x=idx; x<len; x++) {
+       printf ("%02x ", (uint16_t)tmp[idx]);
+       if (idx%8==7) printf("  ");
+       idx++;
+    }
+    printf("\n");
+    fflush (stdout);
+}
+
 void *tx_worker (void *arg) {
     uint32_t idx;
+    uint32_t cnt = 0;
     struct port_t *p = (struct port_t*) arg;
+    INFO ("TX Worker started for port (%d)", p->id);
     // cpu pin
     if (p->do_pin) {
         cpu_set_t cpuset;
@@ -272,32 +307,52 @@ void *tx_worker (void *arg) {
     frm->len = 64;
     frm->src = 0xaabbccddeeffull;
     frm->dst = 0x112233445566ull;
+
     for (idx=0; idx<p->frm_size; idx++) {
         frm->payload[idx] = idx;
     }
-    // send to socket
     while (1) {
-        send (p->fd, frm, (frm->len+32), 0);
+        if (en_traffic) { // controlled from GUI
+            INFO ("port[%d]:Sending a Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
+            send (p->fd, frm, (frm->len+32), 0);
+            if (verbosity==2) { // debug verbosity
+                print_cdata((char*)&frm, frm->len);
+            }
+            cnt++;
+        } else {
+            sleep(1);
+        }
     }
 }
 
 void *rx_worker (void *arg) {
     struct port_t *p = (struct port_t*) arg;
-    // cpu pin
-    if (p->do_pin) {
+    INFO ("RX Worker started for port (%d)", p->id);
+    
+    if (p->do_pin) { // cmdline param
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(p->rxpin, &cpuset);
         pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &cpuset);
     }
     while (1) {
-        read (p->fd, p->rxbuf, RX_BUFMAX, 0);
+        if (en_traffic) {
+            read (p->fd, p->rxbuf, RX_BUFMAX, 0);
+        } else {
+            sleep(1);
+        }
     }
 }
 
 void start_port_worker (struct port_t *p) {
     pthread_create (&p->tx, NULL, *tx_worker, p);
     pthread_create (&p->rx, NULL, *rx_worker, p);
+    // name the threads
+    char thread_name[80];
+    sprintf(thread_name, "txw%d", p->id);
+    pthread_setname_np(p->tx, thread_name);
+    sprintf(thread_name, "rxw%d", p->id);
+    pthread_setname_np(p->rx, thread_name);
 }
 
 char *readable_fs (double size, char *buf) {
@@ -376,7 +431,9 @@ void *dp_worker (void *arg) {
                     s->port[s->nof_ports_added].frm_size = s->opts->frm_size;
                     s->port[s->nof_ports_added].frm_cnt = s->opts->frm_cnt;
                     s->port[s->nof_ports_added].rxbuf = (char*) malloc (RX_BUFMAX);
-                    config_dp_buffer (&s->port[s->nof_ports_added], s->opts->txbuffer_size, s->opts->rxbuffer_size);
+                    if (s->opts->cfg_sock_buf != -1) {
+                        config_dp_buffer (&s->port[s->nof_ports_added], s->opts->txbuffer_size, s->opts->rxbuffer_size);
+                    }
                     // pin logic
                     if (s->opts->pin_start != -1) {
                         s->port[s->nof_ports_added].do_pin = 1;
@@ -428,22 +485,28 @@ void *cp_worker (void *arg) {
                     struct sockaddr_un un;
                     socklen_t len = sizeof (un);
                     int client_fd = accept (cp->fd, (struct sockaddr*) &un, &len);
-                    INFO ("Controlplane connection request accepted..");
+                    INFO ("Controlplane connection request accepted (%d)", client_fd);
                     FD_SET (client_fd, &cp->events);
                     if (client_fd>cp->max_events)
                         cp->max_events = client_fd;
                 } else { // process commands from gui and avip
                     char cmd[32];
                     int nbytes = recv (fd, (char*)&cmd, 32, 0);
-                    if (strcmp(cmd, "start")) {
-                        printf(FGRN("Command Received:Start Traffic\n"));
-                        printf (RST);
-                    } else if (strcmp(cmd, "stop")) {
-                        printf(FGRN("Command Received:Stop Traffic\n"));
-                        printf (RST);
+                    if (nbytes!=0) {
+                        if (strcmp((char*)&cmd, "start")==0) {
+                            printf(FGRN("Command Received:Start Traffic\n"));
+                            en_traffic = 1;
+                        } else if (strcmp((char*)&cmd, "stop")==0) {
+                            printf(FGRN("Command Received:Stop Traffic\n"));
+                            en_traffic = 0;
+                        } else {
+                            printf(FRED("Invalid Command Received\n"));
+                        }
                     } else {
-                        printf(FRED("Invalid Command Received\n"));
-                        printf (RST);
+                        INFO ("Controlplane connection closed (%d)", fd);
+                        FD_CLR (fd, &cp->events);
+                        close(fd);
+                        en_traffic = 0;
                     }
                 }
             }
@@ -453,10 +516,12 @@ void *cp_worker (void *arg) {
 
 void run_dp_controller (struct mpktgen_dp_t *dp) {
     pthread_create (&dp->worker, NULL, *dp_worker, dp);
+    pthread_setname_np(dp->worker, "dp_worker");
 }
 
 void run_cp_controller (struct mpktgen_cp_t *cp) {
     pthread_create (&cp->worker, NULL, *cp_worker, cp);
+    pthread_setname_np(cp->worker, "cp_worker");
 }
 
 int main (int argc, char * argv[]) {
