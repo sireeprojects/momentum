@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sched.h>
+#include "colors.h"
 
 #define MAX_PORTS     256
 #define RX_BUFMAX     16384
@@ -428,6 +429,22 @@ void *cp_worker (void *arg) {
                     socklen_t len = sizeof (un);
                     int client_fd = accept (cp->fd, (struct sockaddr*) &un, &len);
                     INFO ("Controlplane connection request accepted..");
+                    FD_SET (client_fd, &cp->events);
+                    if (client_fd>cp->max_events)
+                        cp->max_events = client_fd;
+                } else { // process commands from gui and avip
+                    char cmd[32];
+                    int nbytes = recv (fd, (char*)&cmd, 32, 0);
+                    if (strcmp(cmd, "start")) {
+                        printf(FGRN("Command Received:Start Traffic\n"));
+                        printf (RST);
+                    } else if (strcmp(cmd, "stop")) {
+                        printf(FGRN("Command Received:Stop Traffic\n"));
+                        printf (RST);
+                    } else {
+                        printf(FRED("Invalid Command Received\n"));
+                        printf (RST);
+                    }
                 }
             }
         }
