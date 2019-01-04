@@ -22,6 +22,12 @@ c:clean
 	-lpthread 	\
 	-o mpktgen
 
+g:
+	@gcc 	\
+	gui.c 	\
+	-o gui;	\
+	./gui
+
 r:
 	@./mpktgen				\
 		-frm_size=100 		\
@@ -31,4 +37,4 @@ r:
 		-verbosity=${VERBOSITY}
 
 clean:
-	@rm -rf *.log mpktgen
+	@rm -rf *.log mpktgen *.out gui
