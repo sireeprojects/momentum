@@ -45,8 +45,8 @@ int en_traffic = 0;
 // frame descriptor
 struct PACKED mpktgen_frame_t {
     // metadata 32 bytes
-    uint32_t ipg : 32;
     uint32_t len : 32;
+    uint32_t ipg : 32;
     char pad [24];
     // frame
     uint64_t src : 48;
@@ -314,14 +314,6 @@ void *tx_worker (void *arg) {
     frm->src = 0xaabbccddeeffull;
     frm->dst = 0x112233445566ull;
 
-    DEBUG("frm.ipg: %x",frm->ipg);
-    DEBUG("frm.len: %x",frm->len);
-    DEBUG("frm.src: %llx",frm->src);
-    DEBUG("frm.dst: %llx",frm->dst);
-    DEBUG("frm.lt : %x",frm->lt);
-    if (verbosity==2) { // debug verbosity
-        print_cdata((char*)frm, (len64*64));
-    }
     // effective payload size
     // 18=6+6+2+4 (enet hdr fields)
     int pl_size = p->frm_size-18; 
@@ -333,6 +325,15 @@ void *tx_worker (void *arg) {
     int len64 = (ceil)((float)(p->frm_size+32)/64);
     DEBUG("port[%d]:FrmSize:(%d):Nof 64 Byte Elems:%d", p->id, p->frm_size, len64);
 
+    DEBUG("frm.ipg: %x",frm->ipg);
+    DEBUG("frm.len: %x",frm->len);
+    DEBUG("frm.src: %llx",frm->src);
+    DEBUG("frm.dst: %llx",frm->dst);
+    DEBUG("frm.lt : %x",frm->lt);
+
+    if (verbosity==2) { // debug verbosity
+        print_cdata((char*)frm, (len64*64));
+    }
     while (1) {
         if (en_traffic) { // controlled from GUI app
             if (cnt < p->frm_cnt) {

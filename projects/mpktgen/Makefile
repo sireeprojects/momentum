@@ -21,7 +21,7 @@ g:
 	@gcc gui.c -o gui; ./gui
 
 a:
-	@g++ avip.cpp -lpthread -std=c++11 -o avip; ./avip
+	@g++ avip.cpp -DMOREMSGS -lpthread -std=c++11 -o avip; ./avip
 
 clean:
 	@rm -rf *.log *.out mpktgen gui avip
