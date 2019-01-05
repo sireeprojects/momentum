@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sched.h>
+#include <math.h>
 #include "colors.h"
 
 #define MAX_PORTS     256
@@ -34,9 +35,10 @@
 
 FILE *logfile;
 
-enum msg_verbosity {error, info, debug};
+enum msg_verbosity {error=0, info=1, debug=2};
 
-uint32_t verbosity = info; // default
+// uint32_t verbosity = info; // default
+uint32_t verbosity = debug; // default
 
 int en_traffic = 0;
 
@@ -258,15 +260,14 @@ int init_cp_controller (struct mpktgen_cp_t *cp) {
 }
 
 int cleanup (struct mpktgen_dp_t *dp, struct mpktgen_cp_t *cp) {
-    close (dp->fd);
-    close (cp->fd);
+    close(dp->fd);
+    close(cp->fd);
 }
 
 void print_cdata (unsigned char* tmp, int len) {
     uint32_t idx = 0;
-    printf ("Packet Len: %d\n", len);
-
     int plen = 16;
+    printf ("Packet Len: %d\n", len);
 
     int x;
     for (x=0; x<len/plen; x++) {
@@ -277,6 +278,7 @@ void print_cdata (unsigned char* tmp, int len) {
             idx++;
         }
         printf("\n");
+        if (x%4==3) printf("\n");
     }
     for (x=idx; x<len; x++) {
        printf ("%02x ", (uint16_t)tmp[idx]);
@@ -292,6 +294,7 @@ void *tx_worker (void *arg) {
     uint32_t cnt = 0;
     struct port_t *p = (struct port_t*) arg;
     INFO ("TX Worker started for port (%d)", p->id);
+
     // cpu pin
     if (p->do_pin) {
         cpu_set_t cpuset;
@@ -303,22 +306,40 @@ void *tx_worker (void *arg) {
     struct mpktgen_frame_t *frm = 
         (struct mpktgen_frame_t*) 
         malloc (sizeof (struct mpktgen_frame_t));
+    memset((char*)frm, 0, sizeof(struct mpktgen_frame_t));
+
     frm->ipg = 12;
-    frm->len = 64;
+    frm->len = p->frm_size;
+    frm->lt = 0x8888;
     frm->src = 0xaabbccddeeffull;
     frm->dst = 0x112233445566ull;
 
-    for (idx=0; idx<p->frm_size; idx++) {
-        frm->payload[idx] = idx;
+    DEBUG("frm.ipg: %x",frm->ipg);
+    DEBUG("frm.len: %x",frm->len);
+    DEBUG("frm.src: %llx",frm->src);
+    DEBUG("frm.dst: %llx",frm->dst);
+    DEBUG("frm.lt : %x",frm->lt);
+    if (verbosity==2) { // debug verbosity
+        print_cdata((char*)frm, (len64*64));
     }
+    // effective payload size
+    // 18=6+6+2+4 (enet hdr fields)
+    int pl_size = p->frm_size-18; 
+
+    for (idx=0; idx<pl_size; idx++) {
+        frm->payload[idx] = (uint16_t)idx;
+    }
+    // nof 64 byte elements to be sent
+    int len64 = (ceil)((float)(p->frm_size+32)/64);
+    DEBUG("port[%d]:FrmSize:(%d):Nof 64 Byte Elems:%d", p->id, p->frm_size, len64);
+
     while (1) {
-        if (en_traffic) { // controlled from GUI
-            INFO ("port[%d]:Sending a Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
-            send (p->fd, frm, (frm->len+32), 0);
-            if (verbosity==2) { // debug verbosity
-                print_cdata((char*)&frm, frm->len);
+        if (en_traffic) { // controlled from GUI app
+            if (cnt < p->frm_cnt) {
+                INFO ("port[%d]:Sending a Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
+                send (p->fd, frm, (len64*64), 0);
+                cnt++;
             }
-            cnt++;
         } else {
             sleep(1);
         }
@@ -371,39 +392,41 @@ void config_dp_buffer (struct port_t *p, uint32_t txsize, uint32_t rxsize) {
     char buf[100];
     int bufsize; 
     socklen_t bufsize_len;
-    bufsize_len = sizeof (bufsize);
+    bufsize_len = sizeof(bufsize);
+
     // current size
-    getsockopt (p->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
-    DEBUG ("Port(%d): Current TX Socket size: %s", p->id, readable_fs (bufsize, buf));
-    getsockopt (p->fd, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
-    DEBUG ("Port(%d): Current RX Socket size: %s", p->id, readable_fs (bufsize, buf));
+    getsockopt(p->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
+    DEBUG("Port(%d): Current TX Socket size: %s", p->id, readable_fs(bufsize, buf));
+    getsockopt(p->fd, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
+    DEBUG("Port(%d): Current RX Socket size: %s", p->id, readable_fs(bufsize, buf));
+
     // setting new size
     bufsize = txsize*1024*1024;
-    setsockopt (p->fd, SOL_SOCKET, SO_SNDBUF, (char*) &bufsize, sizeof (bufsize_len));
+    setsockopt(p->fd, SOL_SOCKET, SO_SNDBUF, (char*)&bufsize, sizeof(bufsize_len));
     bufsize = rxsize*1024*1024;
-    setsockopt (p->fd, SOL_SOCKET, SO_RCVBUF, (char*) &bufsize, sizeof (bufsize_len));
+    setsockopt(p->fd, SOL_SOCKET, SO_RCVBUF, (char*)&bufsize, sizeof(bufsize_len));
+
     // check new socket size
-    getsockopt (p->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
-    INFO ("Port(%d): Update TX Socket size: %s", p->id, readable_fs (bufsize, buf));
-    getsockopt (p->fd, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
-    INFO ("Port(%d): Updated RX Socket size: %s", p->id, readable_fs (bufsize, buf));
+    getsockopt(p->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
+    INFO("Port(%d): Update TX Socket size: %s", p->id, readable_fs(bufsize, buf));
+    getsockopt(p->fd, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
+    INFO("Port(%d): Updated RX Socket size: %s", p->id, readable_fs(bufsize, buf));
 }
 
-void *dp_worker (void *arg) {
-    INFO ("DP: Waiting for connection requests...");
+void *dp_worker(void *arg) {
     struct mpktgen_dp_t *s = (struct mpktgen_dp_t*) arg;
     int fd;
     int ret;
-
     // cpu pin
     if (s->opts->pin_start != -1) {
         s->do_pin = 1;
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(s->opts->pin_start, &cpuset);
-        pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof (cpu_set_t), &cpuset);
         s->opts->pin_start += 1;
     }
+    INFO ("DP: Waiting for connection requests...");
     while (1) {
         uint32_t timeout = 200000;
         struct timeval tv;
@@ -411,9 +434,9 @@ void *dp_worker (void *arg) {
         tv.tv_usec = timeout%1000000;
         fd_set events = s->events;
 
-        ret = select (s->max_events+1, &events, 0, 0, &tv);
+        ret = select(s->max_events+1, &events, 0, 0, &tv);
         if (ret == -1) {
-            ERROR ("Select: %s", strerror(errno));
+            ERROR("Select: %s", strerror(errno));
             exit(0);
         }
         if (ret == 0) {
@@ -423,16 +446,21 @@ void *dp_worker (void *arg) {
             if (FD_ISSET(fd, &events) && FD_ISSET(fd, &s->events)) {
                 if (fd == s->fd) {
                     struct sockaddr_un un;
-                    socklen_t len = sizeof (un);
-                    int client_fd = accept (s->fd, (struct sockaddr*) &un, &len);
+                    socklen_t len = sizeof(un);
+                    int client_fd = accept(s->fd, (struct sockaddr*) &un, &len);
+
                     INFO ("Dataplane connection request accepted, adding port: %d", s->nof_ports_added);
                     s->port[s->nof_ports_added].fd = client_fd;
                     s->port[s->nof_ports_added].id = s->nof_ports_added;
                     s->port[s->nof_ports_added].frm_size = s->opts->frm_size;
                     s->port[s->nof_ports_added].frm_cnt = s->opts->frm_cnt;
                     s->port[s->nof_ports_added].rxbuf = (char*) malloc (RX_BUFMAX);
+
                     if (s->opts->cfg_sock_buf != -1) {
-                        config_dp_buffer (&s->port[s->nof_ports_added], s->opts->txbuffer_size, s->opts->rxbuffer_size);
+                        config_dp_buffer(
+                            &s->port[s->nof_ports_added], 
+                            s->opts->txbuffer_size, 
+                            s->opts->rxbuffer_size);
                     }
                     // pin logic
                     if (s->opts->pin_start != -1) {
@@ -442,7 +470,7 @@ void *dp_worker (void *arg) {
                         s->port[s->nof_ports_added].rxpin = s->opts->pin_start;
                         s->opts->pin_start += 1;
                     }
-                    start_port_worker (&s->port[s->nof_ports_added]);
+                    start_port_worker(&s->port[s->nof_ports_added]);
                     s->nof_ports_added += 1;
                 }
             }
@@ -450,7 +478,7 @@ void *dp_worker (void *arg) {
     }
 }
 
-void *cp_worker (void *arg) {
+void *cp_worker(void *arg) {
     INFO ("CP: Waiting for Control Commands...");
     struct mpktgen_cp_t *cp = (struct mpktgen_cp_t*) arg;
     int fd;
@@ -462,7 +490,7 @@ void *cp_worker (void *arg) {
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(cp->opts->pin_start, &cpuset);
-        pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof (cpu_set_t), &cpuset);
     }
     while (1) {
         uint32_t timeout = 200000;
@@ -473,7 +501,7 @@ void *cp_worker (void *arg) {
 
         ret = select (cp->max_events+1, &events, 0, 0, &tv);
         if (ret == -1) {
-            ERROR ("Select: %s", strerror(errno));
+            ERROR("Select: %s", strerror(errno));
             exit(0);
         }
         if (ret == 0) {
@@ -485,26 +513,31 @@ void *cp_worker (void *arg) {
                     struct sockaddr_un un;
                     socklen_t len = sizeof (un);
                     int client_fd = accept (cp->fd, (struct sockaddr*) &un, &len);
-                    INFO ("Controlplane connection request accepted (%d)", client_fd);
-                    FD_SET (client_fd, &cp->events);
+                    INFO("Controlplane connection request accepted (%d)", client_fd);
+                    FD_SET(client_fd, &cp->events);
                     if (client_fd>cp->max_events)
                         cp->max_events = client_fd;
-                } else { // process commands from gui and avip
+                } else { 
+                    // process commands from gui and avip
                     char cmd[32];
-                    int nbytes = recv (fd, (char*)&cmd, 32, 0);
+                    int nbytes = recv(fd, (char*)&cmd, 32, 0);
+
                     if (nbytes!=0) {
                         if (strcmp((char*)&cmd, "start")==0) {
-                            printf(FGRN("Command Received:Start Traffic\n"));
+                            INFO(FGRN("Command Received:Start Traffic")RST);
+                            fflush(stdout);
                             en_traffic = 1;
                         } else if (strcmp((char*)&cmd, "stop")==0) {
-                            printf(FGRN("Command Received:Stop Traffic\n"));
+                            INFO(FGRN("Command Received:Stop Traffic")RST);
+                            fflush(stdout);
                             en_traffic = 0;
                         } else {
-                            printf(FRED("Invalid Command Received\n"));
+                            INFO(FRED("Invalid Command Received")RST);
+                            fflush(stdout);
                         }
                     } else {
-                        INFO ("Controlplane connection closed (%d)", fd);
-                        FD_CLR (fd, &cp->events);
+                        INFO("Controlplane connection closed (%d)", fd);
+                        FD_CLR(fd, &cp->events);
                         close(fd);
                         en_traffic = 0;
                     }
@@ -514,13 +547,13 @@ void *cp_worker (void *arg) {
     }
 }
 
-void run_dp_controller (struct mpktgen_dp_t *dp) {
-    pthread_create (&dp->worker, NULL, *dp_worker, dp);
+void run_dp_controller(struct mpktgen_dp_t *dp) {
+    pthread_create(&dp->worker, NULL, *dp_worker, dp);
     pthread_setname_np(dp->worker, "dp_worker");
 }
 
-void run_cp_controller (struct mpktgen_cp_t *cp) {
-    pthread_create (&cp->worker, NULL, *cp_worker, cp);
+void run_cp_controller(struct mpktgen_cp_t *cp) {
+    pthread_create(&cp->worker, NULL, *cp_worker, cp);
     pthread_setname_np(cp->worker, "cp_worker");
 }
 
@@ -530,32 +563,32 @@ int main (int argc, char * argv[]) {
     // create data plane conroller
     struct mpktgen_dp_t *dp = 
         (struct mpktgen_dp_t*) 
-        malloc (sizeof (struct mpktgen_dp_t));
+        malloc(sizeof(struct mpktgen_dp_t));
 
     // create control plane conroller
     struct mpktgen_cp_t *cp = 
         (struct mpktgen_cp_t*)
-        malloc (sizeof (struct mpktgen_cp_t));
+        malloc(sizeof(struct mpktgen_cp_t));
 
     // parse and register commandline aguments
-    struct mpktgen_opts_t *opts = parse_cmdline_opts (argc, argv);
+    struct mpktgen_opts_t *opts = parse_cmdline_opts(argc, argv);
     dp->opts = opts;
     cp->opts = opts;
 
     // initialize data and control plane with
     // default paremeters
-    init_dp_controller (dp);
-    init_cp_controller (cp);
+    init_dp_controller(dp);
+    init_cp_controller(cp);
 
     // start controllers
-    run_dp_controller (dp);
-    run_cp_controller (cp);
+    run_dp_controller(dp);
+    run_cp_controller(cp);
 
-    pthread_join (dp->worker, NULL);
-    pthread_join (cp->worker, NULL);
+    pthread_join(dp->worker, NULL);
+    pthread_join(cp->worker, NULL);
 
     // cleanup
-    cleanup (dp, cp); 
+    cleanup(dp, cp); 
 
     close_logfile();
     return 0;
