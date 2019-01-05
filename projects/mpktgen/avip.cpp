@@ -31,7 +31,7 @@
 #define CONTROL_PLANE   "/tmp/mpktgen_cp.sock"
 #define MIN(a, b)       (((a) < (b)) ? (a) : (b))
 #define MAX(a, b)       (((a) > (b)) ? (a) : (b))
-#define MAX_READ         1024
+#define MAX_READ         10240
 
 using namespace std;
 
@@ -105,32 +105,34 @@ int iproxy::csock = -1;
 
 int iproxy::enqueue_frames(uint32_t nElemsAvail) {
     int nBytesRead = -1;
+    int nBytesToProcess = -1;
     int n64ByteElems = -1;
     int nElemsToSend = -1;
     int head = 0;
 
     // try to read data from dplane socket
     nBytesRead = read(dsock, txCache+head, MAX_READ);
-        DBGmsg("nBytesRead: %d\n", nBytesRead);
-        DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
+    DBGmsg("nBytesRead: %d\n", nBytesRead);
+    DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
+    nBytesToProcess = nBytesRead+nBytesInTxCache;
     // proceed only if we have data to process
     if (nBytesRead>0) {
         // find number of 64 byte elems to send
-        n64ByteElems = (nBytesRead+nBytesInTxCache)/64; 
-            DBGmsg("n64ByteElems: %d\n", n64ByteElems);
+        n64ByteElems = nBytesToProcess/64; 
+        DBGmsg("n64ByteElems: %d\n", n64ByteElems);
         nElemsToSend = MIN(nElemsAvail, n64ByteElems);
-            DBGmsg("nElemsToSend: %d\n", nElemsToSend);
+        DBGmsg("nElemsToSend: %d\n", nElemsToSend);
         // TODO try and simplify this logic
-        nBytesInTxCache = (nBytesRead%64);// + ((MAX(nElemsAvail,n64ByteElems)-MIN(nElemsAvail,n64ByteElems))*64);
-            DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
+        nBytesInTxCache = nBytesToProcess - (nElemsToSend*64);
+        DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
         // send data to bfm
         for (int nElems=0; nElems<nElemsToSend; nElems++) {
             //TODO: print/send data
-            print_cdata16((txCache+head),64);
+            // print_cdata16((txCache+head),64);
             head += 64;
         }
         // handle residue
-        memcpy(txCache, txCache+(nElemsToSend*64), nBytesRead-(nElemsToSend*64));
+        memcpy(txCache, txCache+(nElemsToSend*64), nBytesToProcess-(nElemsToSend*64));
     }
 }
 
