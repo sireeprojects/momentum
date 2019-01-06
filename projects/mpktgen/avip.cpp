@@ -22,16 +22,17 @@
     #define DBGmsg(...) {}
 #endif 
 
-#define MAX_PORTS       256
-#define RX_BUFMAX       16384
-#define NUM_PORTS       1
-#define NUM_TXN         100
-#define PACKED          __attribute__((__packed__))
-#define DATA_PLANE      "/tmp/mpktgen_dp.sock"
-#define CONTROL_PLANE   "/tmp/mpktgen_cp.sock"
-#define MIN(a, b)       (((a) < (b)) ? (a) : (b))
-#define MAX(a, b)       (((a) > (b)) ? (a) : (b))
-#define MAX_READ         10240
+#define MAX_PORTS         256
+#define RX_BUFMAX         16384
+#define NUM_PORTS         1
+#define NUM_TXN           100
+#define PACKED            __attribute__((__packed__))
+#define DATA_PLANE        "/tmp/mpktgen_dp.sock"
+#define CONTROL_PLANE     "/tmp/mpktgen_cp.sock"
+#define MIN(a, b)         (((a) < (b)) ? (a) : (b))
+#define MAX(a, b)         (((a) > (b)) ? (a) : (b))
+#define MAX_READ          10240
+#define RXBUF_WATERMARK   10240
 
 using namespace std;
 
@@ -85,8 +86,8 @@ public:
     uint32_t rxelems;
     uint32_t nof_elems_in_buf;
     bool eom;
-    uint32_t *rxbuffer;
-    uint32_t *txbuffer;
+    // uint32_t *rxbuffer;
+    // uint32_t *txbuffer;
     bool txdone;
     bool rxdone;
     uint32_t nof_txn;
@@ -99,6 +100,11 @@ public:
     int nBytesInTxCache;
     void print_cdata16 (char* tmp, int len);
     void set_sock_bufsize (uint64_t txsize, uint64_t rxsize);
+
+    int sof;
+    int metaHead;
+    int rxHead;
+    int rxElemsAdded;
 };
 
 iproxy *proxy[MAX_PORTS];
@@ -109,10 +115,10 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
     int nBytesToProcess = -1;
     int n64ByteElems = -1;
     int nElemsToSend = -1;
-    int head = 0;
+    int txHead = 0;
 
     // try to read data from dplane socket
-    nBytesRead = read(dsock, txCache+head, MAX_READ);
+    nBytesRead = read(dsock, txCache+txHead, MAX_READ);
     // proceed only if we have data to process
     if (nBytesRead>0) {
         nBytesToProcess = nBytesRead+nBytesInTxCache;
@@ -129,38 +135,70 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
         // send data to bfm
         for (int nElems=0; nElems<nElemsToSend; nElems++) {
             //TODO: print/send data
-            // print_cdata16((txCache+head),64);
-            head += 64;
+            // print_cdata16((txCache+txHead),64);
+            txHead += 64;
         }
         // handle residue
         memcpy(txCache, txCache+(nElemsToSend*64), nBytesToProcess-(nElemsToSend*64));
     }
 }
 
-void iproxy::cpy64(uint32_t *dest, uint32_t *src) {
-    for (int i=0; i<16; i++) {
-        *(dest+i) = src[i];
-    }
-}
-
 void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
-    cpy64(rxbuffer+rxoffset, data);
-    rxoffset += 16;
-    rxelems++;
-
-    if ((eom&0x01)==1) {
-        write(dsock, (char*) rxbuffer, rxelems*64);
+    // first element of a new frame
+    if (sof) {
+        metaHead = rxHead;
+        rxHead += 64; // allow space for metadata
+        memcpy(rxCache+rxHead, data, 64);
+        rxHead += 64;
+        sof = 0;
+        rxElemsAdded++;
+    // data elements
+    } else if (sof==0 && (eom&0x01)!=1) {
+        memcpy(rxCache+rxHead, data, 64);
+        rxHead += 64;
+        rxElemsAdded++;
+    // last element
+    } else if ((eom&0x01)==1) {
+        memcpy(rxCache+rxHead, data, 32); // last 32 bytes of data
+        memcpy(rxCache+metaHead, data+32, 32); // metadata
         rxcnt++;
-        rxelems = 0;
-        rxoffset = 0;
-        DBGmsg("*Port:%d Received a frame: NofTxn: %lu\n", pid, rxcnt);
-
-        if (rxcnt==nof_txn) {
-            printf("Receive complete: port[%d] : %lu\n", pid, rxcnt);
-            fflush(stdout);
+        sof = 1; // next element is a new frame
+        rxHead += 64;
+        rxElemsAdded++;
+    }
+    // after watermark write into socket
+    if (rxElemsAdded==RXBUF_WATERMARK) {
+        int nBytesSent = write(dsock, rxCache, (rxElemsAdded*64));
+        // handle residue
+        if (nBytesSent != (rxElemsAdded*64)) {
         }
     }
 }
+
+// void iproxy::cpy64(uint32_t *dest, uint32_t *src) {
+//     for (int i=0; i<16; i++) {
+//         *(dest+i) = src[i];
+//     }
+// }
+// 
+// void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
+//     cpy64(rxbuffer+rxoffset, data);
+//     rxoffset += 16;
+//     rxelems++;
+// 
+//     if ((eom&0x01)==1) {
+//         write(dsock, (char*) rxbuffer, rxelems*64);
+//         rxcnt++;
+//         rxelems = 0;
+//         rxoffset = 0;
+//         DBGmsg("*Port:%d Received a frame: NofTxn: %lu\n", pid, rxcnt);
+// 
+//         if (rxcnt==nof_txn) {
+//             printf("Receive complete: port[%d] : %lu\n", pid, rxcnt);
+//             fflush(stdout);
+//         }
+//     }
+// }
 
 // int iproxy::enqueue_frames (uint32_t nof_elems_avail) {
 //     uint32_t n=0;
@@ -266,6 +304,10 @@ void iproxy::reset() {
     // rxbuffer = new uint32_t [1024];
     // txbuffer = new uint32_t [1024];
     nBytesInTxCache = 0;
+    sof = 1;
+    metaHead = 0;
+    rxHead = 0;
+    rxElemsAdded = 0;
 }
 
 void iproxy::attach_to_dsock() {

@@ -337,7 +337,7 @@ void *tx_worker (void *arg) {
     while (1) {
         if (en_traffic) { // controlled from GUI app
             if (cnt < p->frm_cnt) {
-                INFO ("port[%d]:Sending a Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
+                INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
                 send (p->fd, frm, (len64*64), 0);
                 cnt++;
             }
