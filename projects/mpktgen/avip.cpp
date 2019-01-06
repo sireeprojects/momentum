@@ -171,6 +171,9 @@ void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
         int nBytesSent = write(dsock, rxCache, (rxElemsAdded*64));
         // handle residue
         if (nBytesSent != (rxElemsAdded*64)) {
+            int residue = (rxElemsAdded*64) - nBytesSent;
+            memcpy(rxCache, rxCache+nBytesSent, residue);
+            rxHead = residue;
         }
     }
 }
