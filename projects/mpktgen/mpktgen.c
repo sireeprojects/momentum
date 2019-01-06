@@ -351,7 +351,7 @@ void *rx_worker (void *arg) {
     struct port_t *p = (struct port_t*) arg;
     INFO ("RX Worker started for port (%d)", p->id);
     
-    if (p->do_pin) { // cmdline param
+    if (p->do_pin) { // cmdline param 
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(p->rxpin, &cpuset);

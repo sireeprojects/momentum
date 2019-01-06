@@ -175,7 +175,6 @@ void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
     }
 }
 
-
 // void iproxy::cpy64(uint32_t *dest, uint32_t *src) {
 //     for (int i=0; i<16; i++) {
 //         *(dest+i) = src[i];
