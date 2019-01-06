@@ -98,6 +98,7 @@ public:
     char *rxCache;
     int nBytesInTxCache;
     void print_cdata16 (char* tmp, int len);
+    void set_sock_bufsize (uint64_t txsize, uint64_t rxsize);
 };
 
 iproxy *proxy[MAX_PORTS];
@@ -112,19 +113,19 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
 
     // try to read data from dplane socket
     nBytesRead = read(dsock, txCache+head, MAX_READ);
-    DBGmsg("nBytesRead: %d\n", nBytesRead);
-    DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
-    nBytesToProcess = nBytesRead+nBytesInTxCache;
     // proceed only if we have data to process
     if (nBytesRead>0) {
+        nBytesToProcess = nBytesRead+nBytesInTxCache;
+        DBGmsg("nBytesRead: %d\n", nBytesRead);
+        // DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
         // find number of 64 byte elems to send
         n64ByteElems = nBytesToProcess/64; 
-        DBGmsg("n64ByteElems: %d\n", n64ByteElems);
+        // DBGmsg("n64ByteElems: %d\n", n64ByteElems);
         nElemsToSend = MIN(nElemsAvail, n64ByteElems);
-        DBGmsg("nElemsToSend: %d\n", nElemsToSend);
+        // DBGmsg("nElemsToSend: %d\n", nElemsToSend);
         // TODO try and simplify this logic
         nBytesInTxCache = nBytesToProcess - (nElemsToSend*64);
-        DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
+        // DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
         // send data to bfm
         for (int nElems=0; nElems<nElemsToSend; nElems++) {
             //TODO: print/send data
@@ -133,6 +134,31 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
         }
         // handle residue
         memcpy(txCache, txCache+(nElemsToSend*64), nBytesToProcess-(nElemsToSend*64));
+    }
+}
+
+void iproxy::cpy64(uint32_t *dest, uint32_t *src) {
+    for (int i=0; i<16; i++) {
+        *(dest+i) = src[i];
+    }
+}
+
+void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
+    cpy64(rxbuffer+rxoffset, data);
+    rxoffset += 16;
+    rxelems++;
+
+    if ((eom&0x01)==1) {
+        write(dsock, (char*) rxbuffer, rxelems*64);
+        rxcnt++;
+        rxelems = 0;
+        rxoffset = 0;
+        DBGmsg("*Port:%d Received a frame: NofTxn: %lu\n", pid, rxcnt);
+
+        if (rxcnt==nof_txn) {
+            printf("Receive complete: port[%d] : %lu\n", pid, rxcnt);
+            fflush(stdout);
+        }
     }
 }
 
@@ -218,31 +244,6 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
 //     return 0;
 // }
 
-void iproxy::cpy64(uint32_t *dest, uint32_t *src) {
-    for (int i=0; i<16; i++) {
-        *(dest+i) = src[i];
-    }
-}
-
-void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
-    cpy64(rxbuffer+rxoffset, data);
-    rxoffset += 16;
-    rxelems++;
-
-    if ((eom&0x01)==1) {
-        write(dsock, (char*) rxbuffer, rxelems*64);
-        rxcnt++;
-        rxelems = 0;
-        rxoffset = 0;
-        DBGmsg("*Port:%d Received a frame: NofTxn: %lu\n", pid, rxcnt);
-
-        if (rxcnt==nof_txn) {
-            printf("Receive complete: port[%d] : %lu\n", pid, rxcnt);
-            fflush(stdout);
-        }
-    }
-}
-
 void iproxy::disable_eot() {
     do_eot = false;
 }
@@ -280,6 +281,7 @@ void iproxy::attach_to_dsock() {
         close (dsock);
         exit (1);
     }
+    set_sock_bufsize (0,0);
     // fd_set_blocking (dsock, 0); // nb
 }
 
@@ -346,9 +348,10 @@ iproxy::iproxy(uint32_t id, string name, string data_sockpath, uint32_t txsize, 
 
 void iproxy::tx_thread()
 {
-   while(1) {
+    sleep(15);
+    while(1) {
         enqueue_frames(1024);
-   } 
+    } 
 }
 
 void iproxy::print_data (ipkt *p) {
@@ -400,30 +403,40 @@ void iproxy::print_cdata (unsigned char* tmp, int len) {
     fflush (stdout);
 }
 
+void iproxy::set_sock_bufsize (uint64_t txsize, uint64_t rxsize) {
+    char buf[100];
+    int bufsize;
+    socklen_t bufsize_len;
+    bufsize_len = sizeof (bufsize);
+    getsockopt (dsock, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
+    printf ("Current Socket TX Buffer Size: %s\n", readable_fs (bufsize,buf));
+    getsockopt (dsock, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
+    printf ("Current Socket RX Buffer Size: %s\n", readable_fs (bufsize,buf));
+    // bufsize = txsize*1024*1024;
+    // printf ("Setting Socket TX Buffer Size: %s\n", readable_fs (bufsize,buf));
+    // setsockopt (dsock, SOL_SOCKET, SO_RCVBUF, (char*) &bufsize, sizeof (bufsize_len));
+    // bufsize = rxsize*1024*1024;
+    // printf ("Setting Socket RX Buffer Size: %s\n", readable_fs (bufsize,buf));
+    // setsockopt (dsock, SOL_SOCKET, SO_SNDBUF, (char*) &bufsize, sizeof (bufsize_len));
+    // getsockopt (dsock, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
+    // printf ("New Socket TX Buffer Size:     %s\n", readable_fs (bufsize,buf));
+    // getsockopt (dsock, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
+    // printf ("New Socket RX Buffer Size:     %s\n", readable_fs (bufsize,buf));
+}
+
 void iproxy::print_cdata16 (char* tmp, int len) {
     uint32_t idx = 0;
     int plen = 16;
     printf ("Segment:\n");
 
-    int x;
-    for (x=0; x<len/plen; x++) {
-        int y;
-        for (y=0; y<plen; y++) {
+    for (int x=0; x<len/plen; x++) {
+        for (int y=0; y<plen; y++) {
             printf("%02x ", (0x00ff) & (uint16_t)tmp[idx]);
             if (idx%8==7) printf("  ");
             idx++;
         }
         printf("\n");
-        // if (x%4==3) 
-        //     printf("\n\n");
-        // else
-        //     printf("\n");
     }
-    //for (x=idx; x<len; x++) {
-    //   printf ("%02x ", (0x00ff) & (uint16_t)tmp[idx]);
-    //   if (idx%8==7) printf("  ");
-    //   idx++;
-    //}
     printf("\n");
     fflush (stdout);
 }
