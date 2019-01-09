@@ -8,7 +8,7 @@ default:
 	@rm -f mpktgen; \
 	gcc mpktgen.c -lpthread -lm -o mpktgen; \
 	./mpktgen 				\
-		-frm_size=100 		\
+		-frm_size=200 		\
 		-frm_cnt=500        \
 		-txbuffer_size=64 	\
 		-rxbuffer_size=128 	\

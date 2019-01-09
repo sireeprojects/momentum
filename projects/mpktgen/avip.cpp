@@ -136,6 +136,7 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
         for (int nElems=0; nElems<nElemsToSend; nElems++) {
             //TODO: print/send data
             // print_cdata16((txCache+txHead),64);
+            write(dsock, (txCache+txHead), 64); // loopback
             txHead += 64;
         }
         // handle residue
@@ -178,113 +179,6 @@ void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
     }
 }
 
-// void iproxy::cpy64(uint32_t *dest, uint32_t *src) {
-//     for (int i=0; i<16; i++) {
-//         *(dest+i) = src[i];
-//     }
-// }
-// 
-// void iproxy::handle_txn_cb(unsigned int *data, unsigned char eom) {
-//     cpy64(rxbuffer+rxoffset, data);
-//     rxoffset += 16;
-//     rxelems++;
-// 
-//     if ((eom&0x01)==1) {
-//         write(dsock, (char*) rxbuffer, rxelems*64);
-//         rxcnt++;
-//         rxelems = 0;
-//         rxoffset = 0;
-//         DBGmsg("*Port:%d Received a frame: NofTxn: %lu\n", pid, rxcnt);
-// 
-//         if (rxcnt==nof_txn) {
-//             printf("Receive complete: port[%d] : %lu\n", pid, rxcnt);
-//             fflush(stdout);
-//         }
-//     }
-// }
-
-// int iproxy::enqueue_frames (uint32_t nof_elems_avail) {
-//     uint32_t n=0;
-//     int nof_bytes = 0;
-//     uint32_t nof_elems_consumed = 0;
-//     uint32_t nof_elems_cnt = nof_elems_avail;
-// 
-//     if (txdone)
-//         return 1;
-// 
-//     while (true) {
-//         switch (state) {
-//             case tx_default:{
-//                 pkt={};
-//                 // try to get a frame from IxVerify data socket
-//                 nof_bytes = read (dsock, (unsigned char*) &pkt, 10240);
-//                 DBGmsg ("Nof Bytes Read from Socket: %d\n", nof_bytes);
-// 
-//                 if (nof_bytes > 0) {
-//                     if (txcnt==0)
-//                         pkt.ipg = 12;
-//                     pkt.len = pkt.len+4; //crc
-//                     // printf ("IPG = %d\n", pkt.ipg); fflush (stdout);
-//                     nof_elems_for_cur_frame = ceil ((float) (32+pkt.len)/64);
-//                     DBGmsg ("Nof Elems for this frame: %d\n", nof_elems_for_cur_frame);
-// 
-//                     if (nof_elems_cnt >= nof_elems_for_cur_frame) {
-//                         for (uint32_t i=0; i<nof_elems_for_cur_frame; i++) {
-//                             // DataQ_put ((uint32_t*) &pkt+(i*16));
-//                         }
-//                         nof_elems_consumed += nof_elems_for_cur_frame;
-//                         nof_elems_cnt = nof_elems_cnt - nof_elems_for_cur_frame;
-//                         txcnt++;
-//                         DBGmsg ("Nof frames transmitted: %lu\n", txcnt);
-//                         if (txcnt==nof_txn) {
-//                             printf ("Transmit complete: port[%d] : %lu\n", pid, txcnt);
-//                             fflush (stdout);
-//                             txdone = true;
-//                             return 1; 
-//                         }
-//                         state = tx_default;
-//                     } else {
-//                         DBGmsg ("Port:%d: Unable to send frame\n", pid);
-//                         state = tx_pending;
-//                         return 0;
-//                     }
-//                 } else {
-//                     DBGmsg ("Input Stream State: No data in Socket\n");
-//                     state = tx_default;
-//                     return 0;
-//                 }
-//                 break;
-//             }
-// 
-//             case tx_pending:{ 
-//                 DBGmsg ("Input Stream State: Pending\n");
-//                 nof_elems_for_cur_frame = ceil ((float) (32+pkt.len)/64);
-//                 if (nof_elems_cnt >= nof_elems_for_cur_frame) {
-//                     for (uint32_t i=0; i<nof_elems_for_cur_frame; i++) {
-//                         // DataQ_put ((uint32_t*) &pkt+(i*16));
-//                     }
-//                     nof_elems_consumed += nof_elems_for_cur_frame;
-//                     nof_elems_cnt = nof_elems_cnt - nof_elems_for_cur_frame;
-//                     txcnt++;
-//                     DBGmsg ("Nof frames transmitted: %lu\n", txcnt);
-//                     if (txcnt==nof_txn) {
-//                         printf ("Transmit complete: port[%d] : %lu\n", pid, txcnt);
-//                         fflush (stdout);
-//                         txdone = true;
-//                         return 1; 
-//                     }
-//                     state = tx_default;
-//                 } else {
-//                     DBGmsg ("Port:%d: Unable to send frame\n", pid);
-//                     state = tx_pending;
-//                 }
-//                 break;
-//             }
-//         }
-//     }
-//     return 0;
-// }
-
 void iproxy::disable_eot() {
     do_eot = false;
 }
@@ -304,8 +198,6 @@ void iproxy::reset() {
     state = tx_default;
     nof_elems_in_buf = 0;
     data_sock_path.clear();
-    // rxbuffer = new uint32_t [1024];
-    // txbuffer = new uint32_t [1024];
     nBytesInTxCache = 0;
     sof = 1;
     metaHead = 0;
@@ -393,7 +285,7 @@ iproxy::iproxy(uint32_t id, string name, string data_sockpath, uint32_t txsize, 
 
 void iproxy::tx_thread()
 {
-    sleep(15);
+    sleep(10);
     while(1) {
         enqueue_frames(1024);
     } 
@@ -457,16 +349,6 @@ void iproxy::set_sock_bufsize (uint64_t txsize, uint64_t rxsize) {
     printf ("Current Socket TX Buffer Size: %s\n", readable_fs (bufsize,buf));
     getsockopt (dsock, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
     printf ("Current Socket RX Buffer Size: %s\n", readable_fs (bufsize,buf));
-    // bufsize = txsize*1024*1024;
-    // printf ("Setting Socket TX Buffer Size: %s\n", readable_fs (bufsize,buf));
-    // setsockopt (dsock, SOL_SOCKET, SO_RCVBUF, (char*) &bufsize, sizeof (bufsize_len));
-    // bufsize = rxsize*1024*1024;
-    // printf ("Setting Socket RX Buffer Size: %s\n", readable_fs (bufsize,buf));
-    // setsockopt (dsock, SOL_SOCKET, SO_SNDBUF, (char*) &bufsize, sizeof (bufsize_len));
-    // getsockopt (dsock, SOL_SOCKET, SO_RCVBUF, &bufsize, &bufsize_len);
-    // printf ("New Socket TX Buffer Size:     %s\n", readable_fs (bufsize,buf));
-    // getsockopt (dsock, SOL_SOCKET, SO_SNDBUF, &bufsize, &bufsize_len);
-    // printf ("New Socket RX Buffer Size:     %s\n", readable_fs (bufsize,buf));
 }
 
 void iproxy::print_cdata16 (char* tmp, int len) {

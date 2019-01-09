@@ -337,7 +337,7 @@ void *tx_worker (void *arg) {
     while (1) {
         if (en_traffic) { // controlled from GUI app
             if (cnt < p->frm_cnt) {
-                INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
+                // INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
                 send (p->fd, frm, (len64*64), 0);
                 cnt++;
             }
@@ -357,9 +357,48 @@ void *rx_worker (void *arg) {
         CPU_SET(p->rxpin, &cpuset);
         pthread_setaffinity_np (pthread_self(), sizeof (cpu_set_t), &cpuset);
     }
+    int nBytesRead = -1;
+    int nBytesToProcess = -1;
+    int n64ByteElems = -1;
+    int nElemsRemaining = -1;
+    int nElemsInFrm = -1;
+    int rxHead = 0;
+    int frmLen = 0;
+    int offset = 0;
+    int residue1 = 0;
+    int residue2 = 0;
+    int elemsToProcess = 0;
+    int rxcnt = 0;
+
     while (1) {
         if (en_traffic) {
-            read (p->fd, p->rxbuf, RX_BUFMAX, 0);
+            rxHead = 0;
+            nBytesRead = read(p->fd, p->rxbuf+offset, RX_BUFMAX, 0);
+            elemsToProcess = (ceil)((float)nBytesRead/64);
+            nElemsRemaining = elemsToProcess;
+            residue1 = nBytesRead-(elemsToProcess*64);
+            offset = residue1;
+            INFO("nBytesRead:(%d) elemsToProcess:(%d) nElemsRemaining:(%d) residue1:(%d)",
+                nBytesRead, elemsToProcess, nElemsRemaining, residue1);
+            int i;
+            for(i=0; i<elemsToProcess; i++) {
+                memcpy((char*)&frmLen, p->rxbuf+rxHead, 4);
+                nElemsInFrm = (ceil)((float)(frmLen+32)/64);
+                if (nElemsRemaining<nElemsInFrm) {
+                    residue2 = (elemsToProcess-i)*64;
+                    offset = residue1 + residue2;
+                    INFO("breaaking...");
+                    break;
+                } else {
+                    INFO("nElemsInFrm: %d", nElemsInFrm);
+                    rxHead += nElemsInFrm*64;
+                    rxcnt++;
+                    nElemsRemaining--;
+                }
+                INFO("cnt:(%d) frmLen:(%d) nElemsInFrm:(%d) nElemsRemaining:(%d) rxHead:(%d)", rxcnt, frmLen, nElemsInFrm, nElemsRemaining, rxHead);
+            }
+            // move residue to head of buffer
+            memcpy(p->rxbuf, p->rxbuf+(nBytesRead-offset), offset);
         } else {
             sleep(1);
         }
