@@ -337,8 +337,8 @@ void *tx_worker (void *arg) {
     while (1) {
         if (en_traffic) { // controlled from GUI app
             if (cnt < p->frm_cnt) {
-                // INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", 
-                    // p->id, frm->len, cnt);
+                INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", 
+                    p->id, frm->len, cnt);
                 send (p->fd, frm, (len64*64), 0);
                 cnt++;
             }
@@ -379,19 +379,19 @@ void *rx_worker (void *arg) {
             nElemsRemaining = elemsToProcess;
             offset = nBytesRead-(elemsToProcess*64);
 
-            // INFO("nBytesRead:(%d) elemsToProcess:(%d) nElemsRemaining:(%d) offset:(%d)",
-                // nBytesRead, elemsToProcess, nElemsRemaining, offset);
+            INFO("nBytesRead:(%d) elemsToProcess:(%d) nElemsRemaining:(%d) offset:(%d)",
+                nBytesRead, elemsToProcess, nElemsRemaining, offset);
 
             rxHead=0;
             for(i=0; i<elemsToProcess; i++) {
                 // extract frame length
                 memcpy((char*)&frmLen, p->rxbuf+rxHead, 4);
                 nElemsInFrm = (ceil)((float)(frmLen+32)/64);
-                // INFO("nElemsInFrm: %d", nElemsInFrm);
+                INFO("nElemsInFrm: %d", nElemsInFrm);
 
                 if (nElemsRemaining<nElemsInFrm) {
                     offset += (nElemsRemaining*64);
-                    // INFO("breaaking...");
+                    INFO("breaaking...");
                     break;
                 } else {
                     rxHead += nElemsInFrm*64;
@@ -401,8 +401,8 @@ void *rx_worker (void *arg) {
                         INFO("Test Done:(%d)", rxcnt);
                     }
                 }
-                // INFO("cnt:(%d) frmLen:(%d) nElemsInFrm:(%d) nElemsRemaining:(%d) rxHead:(%d)",
-                    // rxcnt, frmLen, nElemsInFrm, nElemsRemaining, rxHead);
+                INFO("cnt:(%d) frmLen:(%d) nElemsInFrm:(%d) nElemsRemaining:(%d) rxHead:(%d)",
+                    rxcnt, frmLen, nElemsInFrm, nElemsRemaining, rxHead);
             }
             // move residue to head of buffer
             memcpy(p->rxbuf, p->rxbuf+(nBytesRead-offset), offset);
