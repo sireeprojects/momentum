@@ -8,8 +8,8 @@ default:
 	@rm -f mpktgen; \
 	gcc mpktgen.c -lpthread -lm -o mpktgen; \
 	./mpktgen 				\
-		-frm_size=200 		\
-		-frm_cnt=500        \
+		-frm_size=64 		\
+		-frm_cnt=1000000        \
 		-txbuffer_size=64 	\
 		-rxbuffer_size=128 	\
 		-verbosity=${VERBOSITY}

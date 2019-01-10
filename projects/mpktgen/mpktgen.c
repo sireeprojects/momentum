@@ -337,7 +337,8 @@ void *tx_worker (void *arg) {
     while (1) {
         if (en_traffic) { // controlled from GUI app
             if (cnt < p->frm_cnt) {
-                // INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", p->id, frm->len, cnt);
+                // INFO ("port[%d]:Sending Frame:len(%d):Cnt(%d)", 
+                    // p->id, frm->len, cnt);
                 send (p->fd, frm, (len64*64), 0);
                 cnt++;
             }
@@ -365,37 +366,43 @@ void *rx_worker (void *arg) {
     int rxHead = 0;
     int frmLen = 0;
     int offset = 0;
-    int residue1 = 0;
-    int residue2 = 0;
     int elemsToProcess = 0;
     int rxcnt = 0;
+    int i;
 
     while (1) {
         if (en_traffic) {
-            rxHead = 0;
+            // read a block of data from avip
             nBytesRead = read(p->fd, p->rxbuf+offset, RX_BUFMAX, 0);
+            nBytesRead += offset;
             elemsToProcess = (ceil)((float)nBytesRead/64);
             nElemsRemaining = elemsToProcess;
-            residue1 = nBytesRead-(elemsToProcess*64);
-            offset = residue1;
-            INFO("nBytesRead:(%d) elemsToProcess:(%d) nElemsRemaining:(%d) residue1:(%d)",
-                nBytesRead, elemsToProcess, nElemsRemaining, residue1);
-            int i;
+            offset = nBytesRead-(elemsToProcess*64);
+
+            // INFO("nBytesRead:(%d) elemsToProcess:(%d) nElemsRemaining:(%d) offset:(%d)",
+                // nBytesRead, elemsToProcess, nElemsRemaining, offset);
+
+            rxHead=0;
             for(i=0; i<elemsToProcess; i++) {
+                // extract frame length
                 memcpy((char*)&frmLen, p->rxbuf+rxHead, 4);
                 nElemsInFrm = (ceil)((float)(frmLen+32)/64);
+                // INFO("nElemsInFrm: %d", nElemsInFrm);
+
                 if (nElemsRemaining<nElemsInFrm) {
-                    residue2 = (elemsToProcess-i)*64;
-                    offset = residue1 + residue2;
-                    INFO("breaaking...");
+                    offset += (nElemsRemaining*64);
+                    // INFO("breaaking...");
                     break;
                 } else {
-                    INFO("nElemsInFrm: %d", nElemsInFrm);
                     rxHead += nElemsInFrm*64;
                     rxcnt++;
-                    nElemsRemaining--;
+                    nElemsRemaining -= nElemsInFrm;
+                    if (rxcnt==p->frm_cnt) {
+                        INFO("Test Done:(%d)", rxcnt);
+                    }
                 }
-                INFO("cnt:(%d) frmLen:(%d) nElemsInFrm:(%d) nElemsRemaining:(%d) rxHead:(%d)", rxcnt, frmLen, nElemsInFrm, nElemsRemaining, rxHead);
+                // INFO("cnt:(%d) frmLen:(%d) nElemsInFrm:(%d) nElemsRemaining:(%d) rxHead:(%d)",
+                    // rxcnt, frmLen, nElemsInFrm, nElemsRemaining, rxHead);
             }
             // move residue to head of buffer
             memcpy(p->rxbuf, p->rxbuf+(nBytesRead-offset), offset);

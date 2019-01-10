@@ -122,7 +122,7 @@ int iproxy::enqueue_frames(uint32_t nElemsAvail) {
     // proceed only if we have data to process
     if (nBytesRead>0) {
         nBytesToProcess = nBytesRead+nBytesInTxCache;
-        DBGmsg("nBytesRead: %d\n", nBytesRead);
+        // DBGmsg("nBytesRead: %d\n", nBytesRead);
         // DBGmsg("nBytesInTxCache: %d\n", nBytesInTxCache);
         // find number of 64 byte elems to send
         n64ByteElems = nBytesToProcess/64; 
@@ -285,7 +285,7 @@ iproxy::iproxy(uint32_t id, string name, string data_sockpath, uint32_t txsize, 
 
 void iproxy::tx_thread()
 {
-    sleep(10);
+    // sleep(5);
     while(1) {
         enqueue_frames(1024);
     } 
