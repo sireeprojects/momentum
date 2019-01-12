@@ -18,10 +18,8 @@ input [(`CW-1):0] fsize [`DEEP-1:0];
 input en;
 output reg [(`MW-1):0] merged;
 
-always @(posedge clk)
-begin
-    if (rst)
-    begin
+always @(posedge clk) begin
+    if (rst) begin
         merged <= {`MW{1'b0}};
     end
     else if (en)

@@ -286,7 +286,6 @@ iproxy::iproxy(uint32_t id, string name, string data_sockpath, uint32_t txsize, 
 
 void iproxy::tx_thread()
 {
-    // sleep(5);
     while(1) {
         enqueue_frames(1024);
     } 
