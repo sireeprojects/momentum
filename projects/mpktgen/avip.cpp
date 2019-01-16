@@ -284,14 +284,13 @@ iproxy::iproxy(uint32_t id, string name, string data_sockpath, uint32_t txsize, 
     tx.detach();
 }
 
-void iproxy::tx_thread()
-{
+void iproxy::tx_thread() {
     while(1) {
         enqueue_frames(1024);
     } 
 }
 
-void iproxy::print_data (ipkt *p) {
+void iproxy::print_data(ipkt *p) {
     stringstream s;
     s.str ("");
     s.setf(ios::hex, ios::basefield);
@@ -307,8 +306,8 @@ void iproxy::print_data (ipkt *p) {
         s << endl;
     }
     for (uint32_t x=idx; x<p->len+32+8; x++) {
-       s<<noshowbase<<setw(2)<<setfill('0')<<hex<<uint16_t(tmp[idx])<<" ";
-       idx++;
+        s<<noshowbase<<setw(2)<<setfill('0')<<hex<<uint16_t(tmp[idx])<<" ";
+        idx++;
     }
     printf ("PKT Latency : %d\n" , p->latency);
     printf ("PKT Size    : %d\n" , p->len);
@@ -317,7 +316,7 @@ void iproxy::print_data (ipkt *p) {
     fflush (stdout);
 }
 
-void iproxy::print_cdata (unsigned char* tmp, int len) {
+void iproxy::print_cdata(unsigned char* tmp, int len) {
     stringstream s;
     s.str("");
     uint32_t idx = 0;
@@ -333,8 +332,8 @@ void iproxy::print_cdata (unsigned char* tmp, int len) {
         s << endl;
     }
     for (int x=idx; x<len; x++) {
-       s<<noshowbase<<setw(2)<<setfill('0')<<hex<<uint16_t(tmp[idx])<<" ";
-       idx++;
+        s<<noshowbase<<setw(2)<<setfill('0')<<hex<<uint16_t(tmp[idx])<<" ";
+        idx++;
     }
     cout << "PKT Data :" << endl << s.str()<<endl;
     fflush (stdout);
