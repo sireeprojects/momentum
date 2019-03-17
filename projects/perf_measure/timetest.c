@@ -6,10 +6,8 @@
 #include <pthread.h>
 #include <sched.h>
 
-
 struct timespec diff(struct timespec start, struct timespec end);
 void *worker(void *param);
-
 
 int main(){
     pthread_t pt1;
@@ -20,7 +18,6 @@ int main(){
     pthread_join(pt2,NULL);
     return 0;
 }
-
 
 struct timespec diff(struct timespec start, struct timespec end) {
     struct timespec temp;
@@ -34,8 +31,8 @@ struct timespec diff(struct timespec start, struct timespec end) {
         temp.tv_sec = end.tv_sec - start.tv_sec;
         temp.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
+    return temp;
 }
-
 
 void *worker(void *param) {
     struct timespec start, end;
