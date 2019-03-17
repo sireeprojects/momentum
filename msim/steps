@@ -4,3 +4,14 @@ vmap work work
 gcc -I/sw/msim/modeltech/include -shared -fPIC -o hello.so hello.c
 vlog -sv hello.sv
 vsim -c hello -sv_lib hello
+
+
+
+#plain verilog/systemverilog
+vlib work
+vmap work work
+vlog <rtl file>   optional -sv
+vsim -c hello -voptargs="+acc"
+    -> vcd file waves.vcd
+    -> vcd add -r hello/*    #not sure about the -r optiosn
+    -> run -All
