@@ -61,7 +61,6 @@ static char *gtpl_inc_byte_rev;
 static char *gtpl_inc_word_rev;
 static char *gtpl_dec_byte_rev;
 static char *gtpl_dec_word_rev;
-static char *gtpl_random_rev;
 
 
 struct gtpl_patterns {
@@ -84,7 +83,6 @@ void gtpl_free() {
     free(gtpl_inc_word_rev);
     free(gtpl_dec_byte_rev);
     free(gtpl_dec_word_rev);
-    free(gtpl_random_rev);
     int iFree;
     for (iFree=0; iFree<GTPL_RPT_PATTERNS; iFree++) {
         free(gtpl_repeating_pattern[iFree]);
@@ -104,7 +102,6 @@ void gtpl_gen() {
     gtpl_inc_word_rev = (char*)malloc(GTPL_TEMPLATE_SIZE*sizeof(char));
     gtpl_dec_byte_rev = (char*)malloc(GTPL_TEMPLATE_SIZE*sizeof(char));
     gtpl_dec_word_rev = (char*)malloc(GTPL_TEMPLATE_SIZE*sizeof(char));
-    gtpl_random_rev   = (char*)malloc(GTPL_TEMPLATE_SIZE*sizeof(char));
 
     int iRpt;
     for (iRpt=0; iRpt<GTPL_RPT_PATTERNS; iRpt++) {
@@ -152,12 +149,11 @@ void gtpl_gen() {
     gtpl_gen_template(gtpl_inc_word,     GTPL_INCWORD, GTPL_NORMAL  , 0);
     gtpl_gen_template(gtpl_dec_byte,     GTPL_DECBYTE, GTPL_NORMAL  , 0);
     gtpl_gen_template(gtpl_dec_word,     GTPL_DECWORD, GTPL_NORMAL  , 0);
-    gtpl_gen_template(gtpl_random,       GTPL_RANDOM , GTPL_NORMAL  , 0);
     gtpl_gen_template(gtpl_inc_byte_rev, GTPL_INCBYTE, GTPL_REVERSED, 0);
     gtpl_gen_template(gtpl_inc_word_rev, GTPL_INCWORD, GTPL_REVERSED, 0);
     gtpl_gen_template(gtpl_dec_byte_rev, GTPL_DECBYTE, GTPL_REVERSED, 0);
     gtpl_gen_template(gtpl_dec_word_rev, GTPL_DECWORD, GTPL_REVERSED, 0);
-    gtpl_gen_template(gtpl_random_rev,   GTPL_RANDOM,  GTPL_REVERSED, 0);
+    gtpl_gen_template(gtpl_random,       GTPL_RANDOM , GTPL_NORMAL  , 0);
 
     int i_rpt_pat;
     for (i_rpt_pat=0; i_rpt_pat<GTPL_RPT_PATTERNS; i_rpt_pat++) {
