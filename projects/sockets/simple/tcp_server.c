@@ -83,15 +83,26 @@ int main() {
                     struct sockaddr_in in;
                     socklen_t len = sizeof(in);
                     int client_fd = accept(sockfd, (struct sockaddr*) &in, &len);
+                    FD_SET(client_fd, &events);
+                    if (client_fd>max_events)
+                        max_events = client_fd;
                     INFO("Connection request accepted...");
                 } else {
-                    // process data
-                    char instream[32];
-                    char outstream[32];
-                    int nbytes = recv(fd, (char*)&instream, 32, 0);
-                    INFO("Data Received: %s", instream);
-                    strcpy(outstream, "message from linux");
-                    send(fd, outstream, 32, 0);
+                    // process data or  handle closed connection
+                    char instream [64];
+                    char outstream[64];
+                    bzero(&outstream, 64);
+                    int nbytes = recv(fd, (char*)&instream, 64, 0);
+                    if (nbytes<=0) {
+                        FD_CLR(fd, &events);
+                        close(fd);
+                        INFO("Connection closed");
+                    } else {
+                        INFO("Data Received: %s", instream);
+                        strcpy(outstream, "message from linux");
+                        // send(fd, outstream, 64, 0);
+                        send(fd, outstream, 18, 0);
+                    }
                 }
             }
         }
