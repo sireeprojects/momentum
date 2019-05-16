@@ -1,5 +1,5 @@
 libtb:
-	g++ iProxy.cpp -fPIC -shared -o libiProxy.so -Wall -Wno-unused
+	g++ iProxy.cpp -s -fPIC -shared -o libiProxy.so -Wall -Wno-unused
 
 compile:
 	g++ test.cpp -liProxy -o test.x -L/root/momentum/projects/iProxy

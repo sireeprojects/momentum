@@ -1,18 +1,35 @@
+// TODO
+// message macros
+// debug messages
+// latency calculation
+
 #ifndef IPROXY_H
 #define IPROXY_H
 
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <iomanip>
+#include <cmath>
+#include <sstream>
+#include <assert.h>
+// #include "svdpi.h"
+// #include "gsf_is_pid.h"
 
 namespace ethTester {
-using namespace std;
-class iProxy;
+    using namespace std;
+    class iProxy;
 
-typedef enum {TX,RX} iProxyDirection; 
-typedef enum {SOFT,HARD} iProxyResetType; 
-typedef enum {CONNECT, DISCONNECT} cpCommand;
-typedef enum {FEAT1,FEAT2} iProxyFeature; 
+typedef enum {TX,RX}               iProxyDirection; 
+typedef enum {SOFT,HARD}           iProxyResetType; 
+typedef enum {CONNECT, DISCONNECT} iProxyCpCommand;
+typedef enum {LATENCY}             iProxyFeature; 
 
 // used to swap the dataplane descriptors
 // during dynamic reset or speed change 
@@ -63,8 +80,13 @@ public:
     // soft: retains all the statistics and updates continue when
     //       resumed shud be used in multi reset and speed change tests
     // hard: bring the proxy instance to its default state
+    //       bfm connection is clear
+    //       dataplane is cleared
+    //       statistics is cleared
+    //       buffers in both SW and HW are cleared
     void reset(iProxyResetType type);
 
+    // generic iterface to configure proxy and bfm features
     void configure(iProxyFeature feature, unsigned int value);
 
 private:
@@ -87,17 +109,62 @@ private:
     // available in debug build
     void printFrame(iProxyDirection dir, unsigned char *data, unsigned int len);
 
+    // create local cache for frames
+    void createBuffers();
+
+    // extract transmit and receive timstamps from the recevied
+    // frame and calculate the latency
+    void calulateLatency();
+
     // can be used in loopback test. an end of signal will be
     // sent to bfm when the number of frames matches on both 
     // tx and rx sides. the num transaction should also be set
     // available in debug build
-    void enableAutoEot();
+    void setAutoEot(bool flag);
 
     // convert size in bytes to filesystem format, KB/MB/GB etc
     char *readableFS(double size, char *buf);
 
     // use to put the dataplane in blocking or nonblocking mode
     int fdSetBlocking(int fd, int blocking);
+
+    // proxy identifiers
+    string name;
+    unsigned int pID;
+
+    // statistics
+    unsigned int numFramesTransmitted;
+    unsigned int numFramesReceived;
+
+    // dataplane descriptor
+    int dpSock;
+
+    // end of test
+    bool enEot;
+    bool transmitDone;
+    bool receiveDone;
+    bool numTxnsForEot;
+
+    // runtime for rx worker
+    unsigned int rxFrameOffset;
+    unsigned int numElemsRcvd;
+
+    // burst mode
+    bool enBurst;
+    char *txCache;
+    char *rxCache;
+    unsigned int numFramesPerBurst;
+    unsigned int burstSize;
+
+    // otb pinning
+    unsigned int txOtbCpuID;
+    unsigned int rxOtbCpuID;
+    bool txOtbCpuPinned;
+    bool rxOtbCpuPinned;
+
+    // latency
+    unsigned long latency;
+
 };
 
 }

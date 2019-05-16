@@ -15,9 +15,16 @@ int closeControlPlane() {
 }
 
 iProxy::iProxy(unsigned int id, string name, string dataPlaneSocket, unsigned int txBufSize, unsigned int rxBufSize) { 
+    // register name and pid of this instance
+    // create dataplane
+    // reserve dataplane socket buffers
+    // reserve burst cache ?how to handle this in multireset scenario
+    createBuffers();
 }
 
 iProxy::~iProxy() {
+    delete [] txCache;
+    delete [] rxCache;
 }
 
 unsigned int iProxy::txWorker(unsigned int numElemsAvail) {
@@ -27,7 +34,50 @@ unsigned int iProxy::txWorker(unsigned int numElemsAvail) {
 void iProxy::rxWorker(unsigned int *elemData, unsigned char eom) {
 }
 
-void iProxy::reset(iProxyResetType type) {
+void iProxy::reset(iProxyResetType type=SOFT) {
+    switch (type) {
+        case SOFT:{
+            // statistics
+            numFramesTransmitted = 0;
+            numFramesReceived = 0;
+            // end of test // RECHECK
+            enEot = false;
+            transmitDone = false;
+            receiveDone = false;
+            numTxnsForEot = 0;
+            // runtime for rx worker
+            rxFrameOffset = 0;
+            numElemsRcvd = 0;
+            break;
+        }
+        case HARD:{
+            // proxy identifiers
+            name.clear();
+            pID = 0;
+            // statistics
+            numFramesTransmitted = 0;
+            numFramesReceived = 0;
+            // dataplane descriptor
+            dpSock = -1;
+            // end of test
+            enEot = false;
+            transmitDone = false;
+            receiveDone = false;
+            numTxnsForEot = 0;
+            // runtime for rx worker
+            rxFrameOffset = 0;
+            numElemsRcvd = 0;
+            // burst mode
+            enBurst = false;
+            numFramesPerBurst = 5;
+            // otb pinning
+            txOtbCpuID = 0;
+            rxOtbCpuID = 0;
+            txOtbCpuPinned = false;
+            rxOtbCpuPinned = false;
+            break;
+        }
+    }
 }
 
 void iProxy::configure(iProxyFeature feature, unsigned int value) {
@@ -48,7 +98,18 @@ int iProxy::closeDataPlane() {
 void iProxy::printFrame(iProxyDirection dir, unsigned char *data, unsigned int len) {
 }
 
-void iProxy::enableAutoEot() {
+void iProxy::createBuffers() {
+    // CHECK: 10240 is just a placeholder size
+    // actual size should be burst_size * jumbo size
+    txCache = new char [10240];
+    rxCache =new char [10240];
+}
+
+void iProxy::calulateLatency() {
+}
+
+void iProxy::setAutoEot(bool flag) {
+    enEot = flag;
 }
 
 char *iProxy::readableFS(double size, char *buf) {
