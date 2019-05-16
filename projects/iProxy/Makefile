@@ -1,12 +1,16 @@
 libtb:
-	g++ iProxy.cpp 
+	g++ iProxy.cpp -fPIC -shared -o libiProxy.so -Wall -Wno-unused
 
 compile:
-	g++ test.cpp 
+	g++ test.cpp -liProxy -o test.x -L/root/momentum/projects/iProxy
 
 
-run: libtb compile
-
+run:libtb compile
+	./test.x
 
 clean:
-	@rm -rf *.so run.log *.x
+	rm -rf *.so run.log *.x
+
+
+git: clean	
+	gitall
