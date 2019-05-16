@@ -105,7 +105,7 @@ void iProxy::createBuffers() {
     rxCache =new char [10240];
 }
 
-void iProxy::calulateLatency() {
+void iProxy::calculateLatency() {
 }
 
 void iProxy::setAutoEot(bool flag) {

@@ -57,7 +57,7 @@ public:
     iProxy(
         // instance number of the bfm 
         unsigned int id,         
-        // a string identified that will be used in messages
+        // a string identifier that will be used in messages
         string name,             
         // rtl path to the bfm that this instance will be connected to
         string dataPlaneSocket,  
@@ -114,7 +114,7 @@ private:
 
     // extract transmit and receive timstamps from the recevied
     // frame and calculate the latency
-    void calulateLatency();
+    void calculateLatency();
 
     // can be used in loopback test. an end of signal will be
     // sent to bfm when the number of frames matches on both 
