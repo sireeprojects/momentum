@@ -1,14 +1,10 @@
-// TODO
-// message macros
-// debug messages
-// latency calculation
-
 #ifndef IPROXY_H
 #define IPROXY_H
 
 #include <iostream>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -19,12 +15,21 @@
 #include <cmath>
 #include <sstream>
 #include <assert.h>
-// #include "svdpi.h"
-// #include "gsf_is_pid.h"
+#include "svdpi.h"
+#include "gsf_is_pid.h"
+
+#define PACKED __attribute__((__packed__))
 
 namespace ethTester {
     using namespace std;
     class iProxy;
+
+struct PACKED adaptorHeader {
+    unsigned int ipg     :32;
+    unsigned int len     :32;
+    unsigned int latency :32;
+    char pad [20];
+};
 
 typedef enum {TX,RX}               iProxyDirection; 
 typedef enum {SOFT,HARD}           iProxyResetType; 
@@ -37,17 +42,18 @@ int swapDataPlane(iProxy *dest, iProxy *src);
 
 // create a control plane between this proxy instance and adaptor
 // control and status will be exchanged in this plane
-// This should be the first called made from the porxy/bfm before any other action
+// This should be the first called made from the porxy/bfm before
+// any other action
 int connectToControlPlane(string path);
 
 // notify the adaptor that the test has ended
 // adaptor uses this notification to release all the 
 // resources that was reserved for the test. 
 // this should be called just before c_stop_sim
-int closeControlPlane();
+void closeControlPlane();
 
 // file descriptor of the control plane
-int cpSock = -1;
+int cpClient = -1;
 
 class iProxy {
 
@@ -89,6 +95,8 @@ public:
     // generic iterface to configure proxy and bfm features
     void configure(iProxyFeature feature, unsigned int value);
 
+    static unsigned int cpuID;
+
 private:
 
     // create a dataplane between this proxy instance and adaptor
@@ -126,10 +134,13 @@ private:
     char *readableFS(double size, char *buf);
 
     // use to put the dataplane in blocking or nonblocking mode
-    int fdSetBlocking(int fd, int blocking);
+    void fdSetBlocking(int fd, int blocking);
+
+    // pinn otb threads
+    void reserveCPUforOTBThreads(unsigned int pid, iProxyDirection dir);
 
     // proxy identifiers
-    string name;
+    string pName;
     unsigned int pID;
 
     // statistics
@@ -137,7 +148,7 @@ private:
     unsigned int numFramesReceived;
 
     // dataplane descriptor
-    int dpSock;
+    int dpClient;
 
     // end of test
     bool enEot;
