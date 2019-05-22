@@ -13,7 +13,7 @@
 
 int main(int argc, char *argv[]) {
     int sockfd = 0, n = 0;
-    char recvBuff[1024];
+    char recvBuff[32];
     struct sockaddr_in serv_addr; 
 
     if(argc != 2) {
@@ -38,12 +38,16 @@ int main(int argc, char *argv[]) {
        return 1;
     } 
 
-    int i;
+    unsigned long i;
+    int j;
 
-    for (i=0; i<10; i++) {
-        // sleep(1);
-        sprintf(recvBuff, "%s%d", "data", i);
-        write(sockfd, recvBuff, 5);
+
+    for (j=0; ;j++) {
+        for (i=0; i<1000000; i++) {
+        }
+        memset(recvBuff, '0',sizeof(recvBuff));
+        sprintf(recvBuff, "X%d%d", j, i);
+        write(sockfd, recvBuff, 10);
     }
     sleep(5);
     close(sockfd);
