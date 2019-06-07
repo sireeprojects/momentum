@@ -1,0 +1,14 @@
+setenv RTE_TARGET x86_64-native-linuxapp-gcc
+setenv ARCH x86
+setenv DESTDIR /sw/dpdk/install
+make config T=x86_64-native-linuxapp-gcc DESTDIR=/sw/dpdk/install
+make install T=x86_64-native-linuxapp-gcc DESTDIR=/sw/dpdk/install
+
+
+when required:
+yum install kernel-devel
+
+
+umount /home
+vi /etc/fstab
+mount -a (make permanent)
