@@ -1,0 +1,5 @@
+All the tmpfs mounts are RAM + swap so you are not using any disk space there and they are like that for performance reasons.
+
+If you umount /data and edit /etc/fstab you can change where /dev/md2 is mounted. To test it without rebooting use mount -a after amending fstab so you can make sure it mounts without error. You can mount /dev/md2 on the place where you most need the space although you will need to copy the data from one to the other before you mount it over the top.
+
+Personally I would not do that. I would umount /data and remove it from fstab then turn /dev/md2 into an LVM PV, create an LVM VG (vgcreate) using that new PV and then make new LVs from the VG, run mkfs against the LVs and mount those where you need the space.
