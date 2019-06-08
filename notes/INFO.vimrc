@@ -18,3 +18,10 @@ map <F6> ^dw^A<Esc>xxx
 -- honor textwidth
 -- j when usign ctrl+j remove leading comment //
 set formatoptions+=tcj
+
+
+gvim full screen
+yum install -y wmctrl
+
+f11 shortcut for toggle gvim fullscreen
+map <silent> <F11> :call system("wmctrl -ir " . v:windowid . " -b toggle,fullscreen")<CR>
