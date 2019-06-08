@@ -10,3 +10,14 @@ The solution is to modify the two files
 changing the setting of PERL_HOMEDIR from 1 to 0. 
 after logging back in, the PERL5LIB environment variable is no longer set. 
 --------------------------------------------------------------------------------
+
+I assume you're talking about KVM and its UI virt-manager?
+Manually creating a bridge on the physical machine sounds about right. Just create a new bridge and add your physical interface (i.e., eth0) to it. Ihe physical interface should not be configured with an IP address. Instead, the bridge interface will hold the networking configuration your physical interface previously had.
+As an example:
+brctl addbr br0
+ifconfig eth0 0.0.0.0
+brctl addif br0 eth0
+ifconfig br0 192.168.1.120 netmask 255.255.255.0 up
+route add -net 192.168.1.0 netmask 255.255.255.0 br0
+route add default gw 192.168.1.1 br0
+Your physical network should still function after this steps. In virt-manager, you should now be able to select the host-interface br0 when configuring a VMs network.
