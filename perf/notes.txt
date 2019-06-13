@@ -1,0 +1,44 @@
+https://stackoverflow.com/questions/9936132/why-does-the-order-of-the-loops-affect-performance-when-iterating-over-a-2d-arra
+
+use cachegrind to find how the implementation uses cache
+cachegrind is a part of valgrind
+valgrind --tool=cachegrind prog --branch-sim=yes
+
+cache grind practical example:
+https://accu.org/index.php/journals/1886
+
+
+terms:
+cache blocking
+cache thrashing
+
+proofs of concept (POCs)
+
+    strange technique:
+    optimizing_cpp.pdf
+    page 18, first paragraph
+
+
+    get tick count in ms
+    https://stackoverflow.com/questions/3830883/cpu-cycle-count-based-profiling-in-c-c-linux-x86-64
+
+    https://stackoverflow.com/questions/13772567/get-cpu-cycle-count
+    https://stackoverflow.com/questions/33470759/measuring-code-execution-times-in-c-using-rdtsc-instruction/33473175#33473175
+    https://stackoverflow.com/questions/3830883/cpu-cycle-count-based-profiling-in-c-c-linux-x86-64
+    https://stackoverflow.com/questions/13772567/get-cpu-cycle-count
+
+
+    interesting note:
+    If you use it for microbenchmarking, include a warm-up period first to make
+    sure your CPU is already at max clock speed before you start timing. (And
+            optionally disable turbo and tell your OS to prefer max clock speed
+            to avoid CPU frequency shifts during your microbenchmark)
+
+
+    atomics
+    http://www.alexonlinux.com/multithreaded-simple-data-type-access-and-atomic-variables
+
+    unix socket perf
+    https://blog.myhro.info/2017/01/how-fast-are-unix-domain-sockets
+
+    https://stackoverflow.com/questions/16699247/what-is-a-cache-friendly-code
