@@ -1,0 +1,33 @@
+#1
+The right way to yield
+
+The kernel list still sees occasional complaints about the interactive response of recent development kernels. Many of these complaints, it turns out, relate to OpenOffice. The specific problem in this case has been found: a combination of a change in sched_yield() semantics and, one might say, suboptimal programming in OpenOffice.
+
+The purpose of sched_yield() is to temporarily give up the processor to other processes. The process calling sched_yield() remains in the runnable state, and can normally expect to run again in short order. The 2.5 development series has made a subtle change in the way sched_yield() works, however. This call used to simply move the process to the end of the run queue; now it moves the process to the "expired" queue, effectively cancelling the rest of the process's time slice. So a process calling sched_yield() now must wait until all other runnable processes in the system have used up their time slices before it will get the processor again.
+
+The new semantics arguably make more sense; a process calling sched_yield() should truly give up the processor. Some threaded applications, however, implement busy-wait loops with sched_yield(). OpenOffice is one such application; LinuxThreads also, apparently, uses this technique. This kind of application performs poorly with the new yield semantics; being moved to the "expired" queue makes the loop far less responsive.
+
+There has been talk of ways of changing sched_yield() so that OpenOffice and other applications are not so badly penalized. One approach, for example, preserves the application's time slice, but drops its priority slightly. The consensus, however, seems to be that applications that loop on sched_yield() are simply broken and should be fixed. In the case of OpenOffice, this fix has already apparently been made. 
+
+
+#2
+
+sched_yield() causes the calling thread to relinquish the CPU.  The
+thread is moved to the end of the queue for its static priority and a
+new thread gets to run.
+
+If the calling thread is the only thread in the highest priority list
+at that time, it will continue to run after a call to sched_yield().
+
+Strategic calls to sched_yield() can improve performance by giving
+other threads or processes a chance to run when (heavily) contended
+resources (e.g., mutexes) have been released by the caller.  Avoid
+calling sched_yield() unnecessarily or inappropriately (e.g., when
+resources needed by other schedulable threads are still held by the
+caller), since doing so will result in unnecessary context switches,
+which will degrade system performance.
+
+sched_yield() is intended for use with real-time scheduling policies
+(i.e., SCHED_FIFO or SCHED_RR).  Use of sched_yield() with
+nondeterministic scheduling policies such as SCHED_OTHER is
+unspecified and very likely means your application design is broken.       
