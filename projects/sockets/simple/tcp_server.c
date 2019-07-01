@@ -8,12 +8,9 @@
 #include <netinet/in.h>     // sockaddr_in
 #include <sched.h>          // FD_ macros
 
-
 #define PORT 8888
 
-
 int main() {
-
     int sockfd;
     struct sockaddr_in servaddr;
     fd_set events;
@@ -56,9 +53,9 @@ int main() {
     if (sockfd > max_events) {
         max_events = sockfd;
     }
+
     int fd;
     int ret;
-
     // event loop
     while (1) {
         uint32_t timeout = 200000;
