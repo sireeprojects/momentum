@@ -1,1 +1,0 @@
-irun -access +rwc dgen.sv fmm.sv greset.sv top.sv -input run.tcl
