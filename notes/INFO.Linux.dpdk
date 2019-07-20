@@ -7,6 +7,7 @@ make install T=x86_64-native-linuxapp-gcc DESTDIR=/sw/dpdk/install
 
 when required:
 yum install kernel-devel
+yum install numactl-devel
 
 
 umount /home
