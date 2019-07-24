@@ -30,3 +30,23 @@ systemctl enable serial-getty@ttyS0.service
 systemctl start serial-getty@ttyS0.service
 # reboot
 
+# change ens* or enp* to eth0
+------------------------------
+/etc/default/grub 
+add to GRUB_CMDLINE_LINUX=
+    GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0"
+    VM: grub2-mkconfig -o /boot/grub2/grub.cfg
+    Physical: grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+    reboot
+
+
+# hugepage and cpu isolation in grub 
+/etc/default/grub 
+add to GRUB_CMDLINE_LINUX=
+    GRUB_CMDLINE_LINUX="isolcpus=6-53 default_hugepagesz=1G hugepagesz=1G hugepages=4"
+    VM: grub2-mkconfig -o /boot/grub2/grub.cfg
+    Physical: grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+    reboot
+
+    additionally
+    GRUB_CMDLINE_LINUX="isolcpus=6-53 iommu=pt intel_iommu=on nohz_full=6-53 rcu_nocbs=6-53"
