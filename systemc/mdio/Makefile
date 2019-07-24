@@ -1,12 +1,14 @@
+SCHOME=/work/tools/systemc-2.3.3
+
 run:compile
 	@./main.x
 
 
 compile:clean
 	@g++ \
-	   -I/sw/systemc/include \
+	   -I${SCHOME}/include \
 	   -lsystemc \
-	   -L/sw/systemc/lib-linux64 \
+	   -L${SCHOME}/lib-linux64 \
 	   main.cpp \
 	   -o main.x
 	
