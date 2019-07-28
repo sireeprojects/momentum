@@ -50,3 +50,7 @@ add to GRUB_CMDLINE_LINUX=
 
     additionally
     GRUB_CMDLINE_LINUX="isolcpus=6-53 iommu=pt intel_iommu=on nohz_full=6-53 rcu_nocbs=6-53"
+
+
+yum -y install https://harbottle.gitlab.io/wine32/7/i386/wine32-release.rpm
+yum -y install wine.i686    
