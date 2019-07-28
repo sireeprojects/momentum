@@ -54,3 +54,42 @@ add to GRUB_CMDLINE_LINUX=
 
 yum -y install https://harbottle.gitlab.io/wine32/7/i386/wine32-release.rpm
 yum -y install wine.i686    
+
+
+http://mattaw.blogspot.com/2014/05/making-modelsim-altera-starter-edition.html
+https://askubuntu.com/questions/602725/trouble-running-modelsim-on-ubuntu/603651
+
+
+http://download.savannah.gnu.org/releases/freetype/freetype-2.4.12.tar.bz2
+tar -xjvf freetype-2.4.12.tar.bz2
+cd freetype-2.4.12
+./configure --build=i686-pc-linux-gnu "CFLAGS=-m32" "CXXFLAGS=-m32" "LDFLAGS=-m32"
+make -j8
+
+
+The finished libraries are now available inside the objs/.libs directory. As they are necessary to run ModelSim we need to copy them into the install directory so they don't get lost and then modify ModelSim's vsim script to use the new libraries instead of the system wide versions. Change directory to the directory where you installed ModelSim, /opt/altera/13.1/modelsim_ase/, on my system. Note you may need to edit the directory paths to match those used on your system.
+
+sudo mkdir lib32
+sudo cp ~/Downloads/freetype-2.4.12/objs/.libs/libfreetype.so* ./lib32
+
+
+
+How to Use the Mentorkg2010 by EFA 
+1. Copy the mgls.dll and mgc.pkginfo into the current folder. (You can find them in the installation derictory.) 
+2. Remove the 'read only' attribute of the mgls.dll. 
+3. Start cmd and enter, for instance: "mentorkg -h 00E081B38##B -o license.dat -dll . -pkg . ".(Here the dot '.' is very important, it doesn't work if they are not correct. ) 
+4. The file license.dat is exactly what you want! 
+ 
+If you wanna use modelsim 6.5 or 6.6 on windows, just run make.bat, then put the generated license.dat into the C:\flexlm\ , then Enjoy it! 
+ 
+By the way, you can kick off the useless feature in the lic file so that it can check out the license faster! 
+ 
+
+
+
+
+
+
+
+
+
