@@ -15,3 +15,5 @@ vsim -c hello -voptargs="+acc"
     -> vcd file waves.vcd
     -> vcd add -r hello/*    #not sure about the -r optiosn
     -> run -All
+
+    -> vcd add -r *    #dumps all hierarchy
