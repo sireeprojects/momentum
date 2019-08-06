@@ -10,6 +10,15 @@ yum install -y libpcap libpcap-devel
 yum install -y libnl3 libnl3-devel
 requires bindconfig (shud be already in linux installation)
 
+issues with running ostinato
+download ost.tar.gz from gdrive
+untar
+setenv LD_LIBRARY_PATH /root/ost/lib:/root/ost/protolib
+copy ost/plugins/platforms directory into ost/
+
+drone &
+ostinato
+
 
 
 hostnamectl set-hostname your-new-hostname
