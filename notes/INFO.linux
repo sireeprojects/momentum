@@ -9,6 +9,7 @@ yum install -y libnl3 libnl3-devel
 requires bindconfig (shud be already in linux installation)
 
 
+
 hostnamectl set-hostname your-new-hostname
 localhost.localdomain
 
