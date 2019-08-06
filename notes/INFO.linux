@@ -4,6 +4,8 @@ protocol buffers, compile using tarball (protoc and libproto should be in path)
     ./autogen.sh
     ./configure
     make; make install
+or
+yum install -y protobuf protobuf-devel
 yum install -y libpcap libpcap-devel
 yum install -y libnl3 libnl3-devel
 requires bindconfig (shud be already in linux installation)
