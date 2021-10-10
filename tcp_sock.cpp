@@ -70,6 +70,8 @@ struct __attribute__((packed)) metadata {
     };
 };
 
+bool port_done = false;
+
 // initialize
 int fdmax=-1;
 uint32_t timeout = 200000;
@@ -154,8 +156,7 @@ void *sock_server(void*) {
             printf ("New connection request accepted (%d)\n", client_fd);
             FD_SET (client_fd, &master_set);
             if (client_fd > fdmax) fdmax = client_fd;
-            done = false;
-            pthread_create(&stats, NULL, &stats_server, NULL);
+            port_done = false;
          }
 
          if (fd == client_fd && FD_ISSET(fd, &readset)) {
@@ -165,7 +166,7 @@ void *sock_server(void*) {
                   printf ("Cilent Connection Closed\n");
                   done = true;
                } else {
-                  perror("Recv :: ");
+                  perror("Recv ");
                }
                close (fd);
                FD_CLR (fd, &master_set);
@@ -176,10 +177,13 @@ void *sock_server(void*) {
                     case COMMAND: {
                         switch (meta.cmd.cmd) {
                             case START: {
-                                // done = false;
+                                printf("Received command: Start\n");
+                                done = false;
+                                pthread_create(&stats, NULL, &stats_server, NULL);
                                 break;
                                 }
                             case STOP: {
+                                printf("Received command: Stop\n");
                                 done = true;
                                 break;
                                 }
@@ -196,14 +200,18 @@ void *sock_server(void*) {
    }
 }
 
+
 void *stats_server(void*) {
     metadata meta;
 
-    meta.type = PORT_INFO;
-    for(int i=0; i<8; i++) {
-        meta.info.port_num = i;
-        sprintf(meta.info.port_name, "Port_%d", i);
-        write(client_fd, (char*)&meta, 64);
+    if (!port_done) {
+        meta.type = PORT_INFO;
+        for(int i=0; i<8; i++) {
+            meta.info.port_num = i;
+            sprintf(meta.info.port_name, "Port_%d", i);
+            write(client_fd, (char*)&meta, 64);
+        }
+        port_done = true;
     }
 
     int txcnt = 0;
@@ -218,4 +226,5 @@ void *stats_server(void*) {
         txcnt += 100;
         this_thread::sleep_for(std::chrono::milliseconds(100));
     };
+    printf("Transmit thread stopped\n");
 }
