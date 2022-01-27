@@ -1,3 +1,0 @@
-Remove startup banner
-
-setenv SYSTEMC_DISABLE_COPYRIGHT_MESSAGE 1
