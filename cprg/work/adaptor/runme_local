@@ -1,6 +1,0 @@
-./ixia_cdn_adaptor                      \
-   -avip_ctrl_path=/tmp/avip_ctrl.sock  \
-   -avip_data_path=/tmp/avip_data.sock  \
-   -ixia_vlm_path=/tmp/ixia_vlm.sock    \
-   -verbosity=low                       \
-   -mode=local $@
