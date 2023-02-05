@@ -1,4 +1,4 @@
-SCHOME=/work/tools/systemc-2.3.3
+SCHOME=/sw/systemc
 
 run:compile
 	@./main.x
